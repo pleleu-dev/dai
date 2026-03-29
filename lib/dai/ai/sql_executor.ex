@@ -1,0 +1,30 @@
+defmodule Dai.AI.SqlExecutor do
+  @moduledoc "Executes validated SQL against the database."
+
+  def execute(%{"sql" => sql}) do
+    case Ecto.Adapters.SQL.query(Dai.Repo, sql) do
+      {:ok, %Postgrex.Result{columns: columns, rows: rows}} ->
+        mapped_rows =
+          Enum.map(rows, fn row ->
+            columns
+            |> Enum.zip(row)
+            |> Map.new(fn {col, val} -> {col, normalize_value(val)} end)
+          end)
+
+        {:ok, %{columns: columns, rows: mapped_rows}}
+
+      {:error, %Postgrex.Error{postgres: %{message: message}}} ->
+        {:error, {:query_failed, message}}
+
+      {:error, error} ->
+        {:error, {:query_failed, inspect(error)}}
+    end
+  end
+
+  defp normalize_value(%Decimal{} = d), do: Decimal.to_float(d)
+  defp normalize_value(%Date{} = d), do: Date.to_iso8601(d)
+  defp normalize_value(%Time{} = t), do: Time.to_iso8601(t)
+  defp normalize_value(%NaiveDateTime{} = dt), do: NaiveDateTime.to_iso8601(dt)
+  defp normalize_value(%DateTime{} = dt), do: DateTime.to_iso8601(dt)
+  defp normalize_value(val), do: val
+end
