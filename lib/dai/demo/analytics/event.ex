@@ -1,4 +1,4 @@
-defmodule Dai.Analytics.Event do
+defmodule Dai.Demo.Analytics.Event do
   use Ecto.Schema
   import Ecto.Changeset
 
@@ -6,7 +6,7 @@ defmodule Dai.Analytics.Event do
     field :name, :string
     field :properties, :map, default: %{}
 
-    belongs_to :user, Dai.Analytics.User
+    belongs_to :user, Dai.Demo.Analytics.User
 
     timestamps(type: :utc_datetime, updated_at: false)
   end

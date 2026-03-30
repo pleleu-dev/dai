@@ -1,4 +1,4 @@
-defmodule Dai.Analytics.Feature do
+defmodule Dai.Demo.Analytics.Feature do
   use Ecto.Schema
   import Ecto.Changeset
 
@@ -6,7 +6,7 @@ defmodule Dai.Analytics.Feature do
     field :name, :string
     field :enabled, :boolean, default: true
 
-    belongs_to :plan, Dai.Analytics.Plan
+    belongs_to :plan, Dai.Demo.Analytics.Plan
 
     timestamps(type: :utc_datetime)
   end

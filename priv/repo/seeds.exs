@@ -1,5 +1,5 @@
 alias Dai.Repo
-alias Dai.Analytics.{Plan, User, Subscription, Invoice, Event, Feature}
+alias Dai.Demo.Analytics.{Plan, User, Subscription, Invoice, Event, Feature}
 
 # Fixed seed for reproducibility
 :rand.seed(:exsss, {42, 42, 42})

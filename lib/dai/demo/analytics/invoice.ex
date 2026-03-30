@@ -1,4 +1,4 @@
-defmodule Dai.Analytics.Invoice do
+defmodule Dai.Demo.Analytics.Invoice do
   use Ecto.Schema
   import Ecto.Changeset
 
@@ -8,7 +8,7 @@ defmodule Dai.Analytics.Invoice do
     field :due_date, :date
     field :paid_at, :utc_datetime
 
-    belongs_to :subscription, Dai.Analytics.Subscription
+    belongs_to :subscription, Dai.Demo.Analytics.Subscription
 
     timestamps(type: :utc_datetime)
   end

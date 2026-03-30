@@ -1,4 +1,4 @@
-defmodule Dai.Analytics.Plan do
+defmodule Dai.Demo.Analytics.Plan do
   use Ecto.Schema
   import Ecto.Changeset
 
@@ -7,8 +7,8 @@ defmodule Dai.Analytics.Plan do
     field :price_monthly, :integer, default: 0
     field :tier, :string
 
-    has_many :subscriptions, Dai.Analytics.Subscription
-    has_many :features, Dai.Analytics.Feature
+    has_many :subscriptions, Dai.Demo.Analytics.Subscription
+    has_many :features, Dai.Demo.Analytics.Feature
 
     timestamps(type: :utc_datetime)
   end
