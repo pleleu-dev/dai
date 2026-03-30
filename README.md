@@ -60,6 +60,69 @@ Visit [localhost:4000](http://localhost:4000).
 | subscription distribution by plan | Pie chart |
 | show recent failed invoices | Data table |
 
+## Use as a library
+
+Add Dai to an existing Phoenix app:
+
+### 1. Dependencies
+
+```elixir
+# mix.exs
+{:dai, git: "https://github.com/pleleu-dev/dai.git"},
+{:live_charts, "~> 0.4.0"}
+```
+
+### 2. Configuration
+
+```elixir
+# config/config.exs
+config :dai,
+  repo: MyApp.Repo,
+  schema_contexts: [MyApp.Orders, MyApp.Products]
+
+# config/runtime.exs
+config :dai, :ai,
+  api_key: System.get_env("ANTHROPIC_API_KEY"),
+  model: System.get_env("AI_MODEL") || "claude-sonnet-4-6",
+  max_tokens: 1024
+```
+
+### 3. Supervision tree
+
+```elixir
+# application.ex
+children = [
+  MyApp.Repo,
+  Dai.SchemaContext,  # add before Endpoint
+  MyAppWeb.Endpoint
+]
+```
+
+### 4. Router
+
+```elixir
+# router.ex
+import Dai.Router
+
+scope "/" do
+  pipe_through :browser
+  dai_dashboard "/dashboard"
+end
+```
+
+### 5. JS hooks (live_charts)
+
+```javascript
+// app.js
+import { Hooks as LiveChartsHooks } from "live_charts"
+
+const liveSocket = new LiveSocket("/live", Socket, {
+  hooks: {...colocatedHooks, ...LiveChartsHooks}
+})
+```
+
+Visit `/dashboard` and start asking questions about your data.
+
 ## Architecture
 
 ```

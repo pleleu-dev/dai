@@ -18,7 +18,7 @@ defmodule DaiWeb.Router do
 
   scope "/" do
     pipe_through :browser
-    dai_dashboard "/"
+    dai_dashboard("/")
   end
 
   # Other scopes may use custom stacks.
