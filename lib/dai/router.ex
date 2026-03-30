@@ -25,33 +25,47 @@ defmodule Dai.Router do
   """
 
   defmacro dai_dashboard(path, opts \\ []) do
-    layout = Keyword.get(opts, :layout)
-    on_mount = Keyword.get(opts, :on_mount, [])
-    live_opts = Keyword.drop(opts, [:layout, :on_mount])
+    # opts are AST nodes at macro expansion time — extract them as AST
+    layout_ast = Keyword.get(opts, :layout)
+    on_mount_ast = Keyword.get(opts, :on_mount, [])
+    live_opts_ast = Keyword.drop(opts, [:layout, :on_mount])
 
-    session_opts =
-      case layout do
-        nil -> []
-        layout_tuple -> [layout: layout_tuple]
-      end
+    has_layout = layout_ast != nil
 
-    session_opts =
-      case on_mount do
-        [] -> session_opts
-        hooks -> Keyword.put(session_opts, :on_mount, hooks)
-      end
-
-    # Pass a session value so the LiveView knows whether to use its own layout
-    session_opts =
-      if layout do
-        Keyword.put(session_opts, :session, %{"dai_host_layout" => true})
-      else
-        session_opts
-      end
+    # Build session_opts as a keyword list of AST pairs for use in quote.
+    # The :session map is a plain Elixir term so it needs Macro.escape/1.
+    # The :layout and :on_mount values are already AST and unquote correctly.
+    session_pairs =
+      []
+      |> then(fn acc ->
+        if has_layout do
+          [{:layout, layout_ast} | acc]
+        else
+          acc
+        end
+      end)
+      |> then(fn acc ->
+        case on_mount_ast do
+          [] -> acc
+          _ -> [{:on_mount, on_mount_ast} | acc]
+        end
+      end)
+      |> then(fn acc ->
+        if has_layout do
+          session_map = Macro.escape(%{"dai_host_layout" => true})
+          [{:session, session_map} | acc]
+        else
+          acc
+        end
+      end)
 
     quote do
-      live_session :dai_dashboard, unquote(session_opts) do
-        live unquote(path), Dai.DashboardLive, :index, unquote(live_opts)
+      # Use alias: false to prevent Phoenix scope from prepending module namespace
+      # to Dai.DashboardLive (same pattern used by Phoenix.LiveDashboard.Router)
+      scope unquote(path), alias: false do
+        live_session :dai_dashboard, unquote(session_pairs) do
+          live "/", Dai.DashboardLive, :index, unquote(live_opts_ast)
+        end
       end
     end
   end
