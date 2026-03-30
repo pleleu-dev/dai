@@ -9,12 +9,31 @@ defmodule Dai.DashboardLive do
   @impl true
   def render(assigns) do
     ~H"""
-    <Dai.Layouts.app flash={@flash}>
+    <.dai_wrapper host_layout={@dai_host_layout} flash={@flash}>
       <div class="max-w-7xl mx-auto">
         <.query_input form={@form} loading={@loading} />
         <.loading_skeleton :if={@loading} />
         <.results_grid streams={@streams} />
       </div>
+    </.dai_wrapper>
+    """
+  end
+
+  # When a host layout is active, render content directly (host layout wraps us)
+  attr :host_layout, :boolean, required: true
+  attr :flash, :map, required: true
+  slot :inner_block, required: true
+
+  defp dai_wrapper(%{host_layout: true} = assigns) do
+    ~H"""
+    {render_slot(@inner_block)}
+    """
+  end
+
+  defp dai_wrapper(assigns) do
+    ~H"""
+    <Dai.Layouts.app flash={@flash}>
+      {render_slot(@inner_block)}
     </Dai.Layouts.app>
     """
   end
@@ -123,10 +142,12 @@ defmodule Dai.DashboardLive do
   # --- LiveView callbacks ---
 
   @impl true
-  def mount(_params, _session, socket) do
+  def mount(_params, session, socket) do
+    host_layout = Map.get(session, "dai_host_layout", false)
+
     {:ok,
      socket
-     |> assign(loading: false, current_prompt: nil, task_ref: nil)
+     |> assign(loading: false, current_prompt: nil, task_ref: nil, dai_host_layout: host_layout)
      |> assign(:form, to_form(%{"prompt" => ""}, as: :query))
      |> stream(:results, [])}
   end
