@@ -1,8 +1,7 @@
-defmodule DaiWeb.DashboardComponents do
+defmodule Dai.DashboardComponents do
   @moduledoc "Function components for dashboard result cards."
 
   use Phoenix.Component
-  import DaiWeb.CoreComponents, only: [icon: 1]
 
   alias Dai.AI.Result
 
@@ -28,7 +27,9 @@ defmodule DaiWeb.DashboardComponents do
           class="btn btn-ghost btn-xs btn-circle opacity-50 hover:opacity-100"
           aria-label="Dismiss"
         >
-          <.icon name="hero-x-mark" class="size-4" />
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="size-4">
+            <path d="M6.28 5.22a.75.75 0 0 0-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 1 0 1.06 1.06L10 11.06l3.72 3.72a.75.75 0 1 0 1.06-1.06L11.06 10l3.72-3.72a.75.75 0 0 0-1.06-1.06L10 8.94 6.28 5.22Z" />
+          </svg>
         </button>
       </div>
       <div class="p-4 pt-2">
@@ -91,20 +92,9 @@ defmodule DaiWeb.DashboardComponents do
   attr :result, Result, required: true
 
   defp chart(assigns) do
-    chart_type = chart_type_string(assigns.result.type)
-    chart_config = build_chart_config(assigns.result)
-    assigns = assign(assigns, chart_type: chart_type, chart_config: Jason.encode!(chart_config))
-
     ~H"""
-    <div
-      id={"chart-#{@result.id}"}
-      phx-hook="ChartHook"
-      phx-update="ignore"
-      data-chart-type={@chart_type}
-      data-chart-config={@chart_config}
-      class="relative h-64"
-    >
-      <canvas></canvas>
+    <div id={"chart-#{@result.id}"} class="h-64 flex items-center justify-center text-base-content/40">
+      Chart loading...
     </div>
     """
   end
@@ -140,7 +130,9 @@ defmodule DaiWeb.DashboardComponents do
     ~H"""
     <div class="flex flex-col items-center gap-3 py-4">
       <div class="flex items-center gap-2 text-error">
-        <.icon name="hero-exclamation-triangle" class="size-5" />
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="size-5">
+          <path fill-rule="evenodd" d="M8.485 2.495c.673-1.167 2.357-1.167 3.03 0l6.28 10.875c.673 1.167-.17 2.625-1.516 2.625H3.72c-1.347 0-2.189-1.458-1.515-2.625L8.485 2.495ZM10 5a.75.75 0 0 1 .75.75v3.5a.75.75 0 0 1-1.5 0v-3.5A.75.75 0 0 1 10 5Zm0 9a1 1 0 1 0 0-2 1 1 0 0 0 0 2Z" clip-rule="evenodd" />
+        </svg>
         <span class="text-sm">{@result.error}</span>
       </div>
       <button
@@ -160,7 +152,9 @@ defmodule DaiWeb.DashboardComponents do
     ~H"""
     <div class="flex flex-col gap-3 py-2">
       <div class="flex items-start gap-2">
-        <.icon name="hero-chat-bubble-left-ellipsis" class="size-5 text-info shrink-0 mt-0.5" />
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="size-5 text-info shrink-0 mt-0.5">
+          <path fill-rule="evenodd" d="M10 2c-2.236 0-4.43.18-6.57.524C1.993 2.755 1 4.014 1 5.426v5.148c0 1.413.993 2.67 2.43 2.902 1.168.188 2.352.327 3.55.414.28.02.521.18.642.413l1.713 3.293a.75.75 0 0 0 1.33 0l1.713-3.293a.783.783 0 0 1 .642-.413 41.102 41.102 0 0 0 3.55-.414c1.437-.231 2.43-1.49 2.43-2.902V5.426c0-1.413-.993-2.67-2.43-2.902A41.289 41.289 0 0 0 10 2ZM6.75 6a.75.75 0 0 0 0 1.5h6.5a.75.75 0 0 0 0-1.5h-6.5Zm0 2.5a.75.75 0 0 0 0 1.5h3.5a.75.75 0 0 0 0-1.5h-3.5Z" clip-rule="evenodd" />
+        </svg>
         <p class="text-sm text-base-content">{@result.question}</p>
       </div>
       <form phx-submit="query" class="flex gap-2">
@@ -216,30 +210,4 @@ defmodule DaiWeb.DashboardComponents do
   defp format_cell(%DateTime{} = dt), do: Calendar.strftime(dt, "%Y-%m-%d %H:%M")
   defp format_cell(%Date{} = d), do: Calendar.strftime(d, "%Y-%m-%d")
   defp format_cell(value), do: to_string(value)
-
-  defp chart_type_string(:bar_chart), do: "bar"
-  defp chart_type_string(:line_chart), do: "line"
-  defp chart_type_string(:pie_chart), do: "pie"
-
-  defp build_chart_config(%{type: :pie_chart, data: data, config: config}) do
-    label_field = config["label_field"] || Enum.at(data.columns, 0)
-    value_field = config["value_field"] || Enum.at(data.columns, 1)
-
-    labels = Enum.map(data.rows, &to_string(&1[label_field]))
-    values = Enum.map(data.rows, & &1[value_field])
-    cutout = if length(labels) > 4, do: "50%", else: nil
-
-    %{labels: labels, values: values, cutout: cutout}
-  end
-
-  defp build_chart_config(%{data: data, config: config}) do
-    x_axis = config["x_axis"] || Enum.at(data.columns, 0)
-    y_axis = config["y_axis"] || Enum.at(data.columns, 1)
-
-    labels = Enum.map(data.rows, &to_string(&1[x_axis]))
-    values = Enum.map(data.rows, & &1[y_axis])
-    fill = config["fill"] || false
-
-    %{labels: labels, values: values, fill: fill, dataset_label: config["y_axis"] || ""}
-  end
 end
