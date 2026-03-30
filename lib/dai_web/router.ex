@@ -14,10 +14,11 @@ defmodule DaiWeb.Router do
     plug :accepts, ["json"]
   end
 
+  import Dai.Router
+
   scope "/" do
     pipe_through :browser
-
-    live "/", Dai.DashboardLive, :index
+    dai_dashboard "/"
   end
 
   # Other scopes may use custom stacks.
