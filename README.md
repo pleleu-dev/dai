@@ -1,6 +1,6 @@
 # Dai
 
-A natural-language data dashboard built on Phoenix LiveView and Claude. Ask questions in plain English, get instant charts, metrics, and tables.
+A natural-language data dashboard that plugs into any Phoenix app. Ask questions in plain English, get instant charts, metrics, and tables — powered by Claude.
 
 ![Phoenix](https://img.shields.io/badge/Phoenix-1.8-orange) ![Elixir](https://img.shields.io/badge/Elixir-1.15+-purple) ![License](https://img.shields.io/badge/License-MIT-blue)
 
@@ -9,60 +9,24 @@ A natural-language data dashboard built on Phoenix LiveView and Claude. Ask ques
 ```
 "revenue by plan this month"
         |
-   Schema Context  ──>  Claude API  ──>  SQL Validation  ──>  Postgres  ──>  LiveView Card
-   (auto-generated)     (NL -> SQL)     (blocklist+LIMIT)    (raw query)    (chart/table/KPI)
+   Schema Context  -->  Claude API  -->  SQL Validation  -->  Postgres  -->  LiveView Card
+   (boot-time)         (NL -> SQL)     (blocklist+LIMIT)    (raw query)    (chart/table/KPI)
 ```
 
-Type a question. Dai sends it to Claude along with your database schema, gets back a SQL query and a visualization type, validates and executes the query, and renders the result as a card in a dashboard grid. No dashboards to configure, no filters to learn.
+Dai introspects your Ecto schemas at boot, sends the user's question + schema context to Claude, validates and executes the returned SQL, and renders the result as a card in a dashboard grid. No dashboards to configure, no filters to learn.
 
 ## Features
 
-- **5 visualization types** -- KPI metrics, bar charts, line charts, pie charts, data tables
-- **Schema-aware AI** -- auto-introspects your Ecto schemas so Claude knows your data model
-- **Safe SQL execution** -- keyword blocklist (no INSERT/DELETE/DROP), enforced LIMIT clauses
-- **Clarification flow** -- Claude asks follow-up questions when your query is ambiguous
-- **Theme-aware charts** -- Chart.js reads DaisyUI CSS variables, re-renders on theme switch
-- **Light/dark/system toggle** -- inherits host app theme, works standalone too
-
-## Quick start
-
-### Prerequisites
-
-- Elixir 1.15+
-- PostgreSQL
-- [Anthropic API key](https://console.anthropic.com/)
-
-### Setup
-
-```bash
-git clone https://github.com/pleleu-dev/dai.git
-cd dai
-
-# Create .env with your API key
-echo 'ANTHROPIC_API_KEY=sk-ant-your-key-here' > .env
-
-# Install deps, create DB, run migrations, seed data
-mix setup
-
-# Start the server (loads .env automatically)
-mix dev
-```
-
-Visit [localhost:4000](http://localhost:4000).
-
-### Example queries
-
-| Query | Result |
-|---|---|
-| how many active subscribers? | KPI card |
-| revenue by plan this month | Bar chart |
-| signups over the last 6 months | Line chart |
-| subscription distribution by plan | Pie chart |
-| show recent failed invoices | Data table |
+- **5 visualization types** — KPI metrics, bar charts, line charts, pie charts, data tables
+- **Schema-aware AI** — auto-discovers your Ecto schemas by namespace at boot
+- **Safe SQL execution** — keyword blocklist (no INSERT/DELETE/DROP), enforced LIMIT clauses
+- **Clarification flow** — Claude asks follow-up questions when your query is ambiguous
+- **Theme-aware charts** — ApexCharts via live_charts, inherits DaisyUI CSS variables
+- **Library-first** — designed as a dependency for existing Phoenix apps
 
 ## Use as a library
 
-Add Dai to an existing Phoenix app:
+Add Dai to an existing Phoenix app in 5 steps:
 
 ### 1. Dependencies
 
@@ -86,6 +50,8 @@ config :dai, :ai,
   model: System.get_env("AI_MODEL") || "claude-sonnet-4-6",
   max_tokens: 1024
 ```
+
+`schema_contexts` controls which Ecto schemas Dai can see. Any schema whose module name starts with a listed context is included (e.g. `MyApp.Orders.Order` matches `MyApp.Orders`). Use `extra_schemas: [MyApp.Legacy.SomeTable]` for one-offs outside those namespaces.
 
 ### 3. Supervision tree
 
@@ -123,34 +89,61 @@ const liveSocket = new LiveSocket("/live", Socket, {
 
 Visit `/dashboard` and start asking questions about your data.
 
+## Run standalone (development)
+
+Dai ships with a SaaS analytics demo dataset for standalone development and testing.
+
+```bash
+git clone https://github.com/pleleu-dev/dai.git
+cd dai
+
+# Create .env with your API key
+echo 'ANTHROPIC_API_KEY=sk-ant-your-key-here' > .env
+
+# Install deps, create DB, run migrations, seed data
+mix setup
+
+# Start the server (loads .env automatically)
+mix dev
+```
+
+Visit [localhost:4000](http://localhost:4000).
+
+### Example queries
+
+| Query | Result |
+|---|---|
+| how many active subscribers? | KPI card |
+| revenue by plan this month | Bar chart |
+| signups over the last 6 months | Line chart |
+| subscription distribution by plan | Pie chart |
+| show recent failed invoices | Data table |
+
 ## Architecture
 
 ```
 lib/dai/
-  analytics/         # Ecto schemas (Plan, User, Subscription, Invoice, Event, Feature)
+  config.ex              # Centralized config reader (:dai app env)
+  schema_context.ex      # Boot-time Ecto schema introspection via :persistent_term
+  router.ex              # dai_dashboard/2 macro for host app routers
+  icons.ex               # Self-contained SVG icon components
+  layouts.ex             # Dashboard layout (nav bar)
+  dashboard_live.ex      # Main LiveView — form, async task, stream
+  dashboard_components.ex # Card components for each result type
   ai/
-    client.ex        # Claude Messages API via Req
-    plan_validator.ex # SQL blocklist + LIMIT enforcement
-    sql_executor.ex   # Raw query via Ecto.Adapters.SQL
-    result_assembler.ex
-    query_pipeline.ex # Chains the above 4 steps
-    system_prompt.ex  # Builds the Claude prompt with schema + rules + examples
-    component.ex      # Component type registry (single source of truth)
-    result.ex         # %Result{} struct flowing through the pipeline
-  schema_context.ex   # :persistent_term cache of schema description
-
-lib/dai_web/
-  live/
-    dashboard_live.ex      # Main LiveView -- form, async task, stream
-    dashboard_live.html.heex
-  components/
-    dashboard_components.ex # Card components for each result type
-
-assets/js/hooks/
-  chart_hook.js       # Chart.js + MutationObserver for theme sync
+    query_pipeline.ex    # Chains: Client -> Validator -> Executor -> Assembler
+    client.ex            # Claude Messages API via Req
+    system_prompt.ex     # Builds prompt with schema + rules + examples
+    plan_validator.ex    # SQL keyword blocklist + LIMIT enforcement
+    sql_executor.ex      # Raw query via Ecto.Adapters.SQL + type normalization
+    result_assembler.ex  # Builds %Result{} structs
+    result.ex            # Result struct definition
+    component.ex         # Component type registry (single source of truth)
+  demo/
+    analytics/           # Sample schemas (standalone mode only)
 ```
 
-The pipeline is a pure function chain (`QueryPipeline.run/2`) called via `Task.async` from the LiveView. Results stream into a CSS grid as cards. No client-side state management.
+The pipeline is a pure function chain (`QueryPipeline.run/2`) called via `Task.async` from the LiveView. Results stream into a CSS grid as cards. Charts rendered by live_charts (ApexCharts). No client-side state management.
 
 ## Commands
 
@@ -160,7 +153,7 @@ The pipeline is a pure function chain (`QueryPipeline.run/2`) called via `Task.a
 | Dev server (loads .env) | `mix dev` |
 | Run all tests | `mix test` |
 | Precommit checks | `mix precommit` |
-| Regenerate schema context | `mix gen_schema_context` |
+| Show schema context | `mix gen_schema_context` |
 | Reset database | `mix ecto.reset` |
 
 ## Tech stack
@@ -173,7 +166,7 @@ The pipeline is a pure function chain (`QueryPipeline.run/2`) called via `Task.a
 | Database | PostgreSQL + Ecto |
 | AI | Claude Sonnet 4.6 (Anthropic) |
 | HTTP client | Req |
-| Charts | Chart.js |
+| Charts | live_charts (ApexCharts) |
 
 ## Configuration
 
