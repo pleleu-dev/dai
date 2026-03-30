@@ -92,11 +92,57 @@ defmodule Dai.DashboardComponents do
   attr :result, Result, required: true
 
   defp chart(assigns) do
+    chart = build_live_chart(assigns.result)
+    assigns = assign(assigns, :chart, chart)
+
     ~H"""
-    <div id={"chart-#{@result.id}"} class="h-64 flex items-center justify-center text-base-content/40">
-      Chart loading...
+    <div id={"chart-#{@result.id}"} class="h-64">
+      <LiveCharts.chart chart={@chart} />
     </div>
     """
+  end
+
+  defp build_live_chart(%{type: :bar_chart, data: data, config: config}) do
+    x_axis = config["x_axis"] || Enum.at(data.columns, 0)
+    y_axis = config["y_axis"] || Enum.at(data.columns, 1)
+
+    LiveCharts.build(%{
+      type: :bar,
+      series: [%{name: y_axis, data: Enum.map(data.rows, &(&1[y_axis]))}],
+      options: %{
+        xaxis: %{categories: Enum.map(data.rows, &to_string(&1[x_axis]))},
+        chart: %{height: "100%"}
+      }
+    })
+  end
+
+  defp build_live_chart(%{type: :line_chart, data: data, config: config}) do
+    x_axis = config["x_axis"] || Enum.at(data.columns, 0)
+    y_axis = config["y_axis"] || Enum.at(data.columns, 1)
+
+    LiveCharts.build(%{
+      type: :line,
+      series: [%{name: y_axis, data: Enum.map(data.rows, &(&1[y_axis]))}],
+      options: %{
+        xaxis: %{categories: Enum.map(data.rows, &to_string(&1[x_axis]))},
+        chart: %{height: "100%"},
+        stroke: %{curve: "smooth"}
+      }
+    })
+  end
+
+  defp build_live_chart(%{type: :pie_chart, data: data, config: config}) do
+    label_field = config["label_field"] || Enum.at(data.columns, 0)
+    value_field = config["value_field"] || Enum.at(data.columns, 1)
+
+    LiveCharts.build(%{
+      type: if(length(data.rows) > 4, do: :donut, else: :pie),
+      series: Enum.map(data.rows, &(&1[value_field])),
+      options: %{
+        labels: Enum.map(data.rows, &to_string(&1[label_field])),
+        chart: %{height: "100%"}
+      }
+    })
   end
 
   attr :result, Result, required: true
