@@ -37,13 +37,26 @@ defmodule Dai.SchemaContext do
     contexts = Dai.Config.schema_contexts()
     extras = Dai.Config.extra_schemas()
 
-    {:ok, modules} = :application.get_key(:dai, :modules)
-
-    Enum.filter(modules, fn mod ->
+    all_app_modules()
+    |> Enum.filter(fn mod ->
       Code.ensure_loaded?(mod) and
         function_exported?(mod, :__schema__, 1) and
         (matches_context?(mod, contexts) or mod in extras)
     end)
+  end
+
+  # In standalone mode, scan :dai modules. When used as a library,
+  # also scan the host app's modules via :code.all_loaded().
+  defp all_app_modules do
+    dai_modules =
+      case :application.get_key(:dai, :modules) do
+        {:ok, mods} -> mods
+        _ -> []
+      end
+
+    loaded_modules = Enum.map(:code.all_loaded(), &elem(&1, 0))
+
+    Enum.uniq(dai_modules ++ loaded_modules)
   end
 
   defp matches_context?(_mod, []), do: true
