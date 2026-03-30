@@ -2,7 +2,7 @@ defmodule Dai.AI.SqlExecutor do
   @moduledoc "Executes validated SQL against the database."
 
   def execute(%{"sql" => sql}) do
-    case Ecto.Adapters.SQL.query(Dai.Repo, sql) do
+    case Ecto.Adapters.SQL.query(Dai.Config.repo(), sql) do
       {:ok, %Postgrex.Result{columns: columns, rows: rows}} ->
         mapped_rows =
           Enum.map(rows, fn row ->

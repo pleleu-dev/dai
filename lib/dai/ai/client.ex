@@ -4,25 +4,23 @@ defmodule Dai.AI.Client do
   @api_url "https://api.anthropic.com/v1/messages"
 
   def generate_plan(prompt, schema_context) do
-    config = Application.get_env(:dai, :ai, [])
-
-    with {:ok, api_key} <- fetch_api_key(config) do
-      body = build_request_body(prompt, schema_context, config)
+    with {:ok, api_key} <- fetch_api_key() do
+      body = build_request_body(prompt, schema_context)
       call_api(api_key, body)
     end
   end
 
-  defp fetch_api_key(config) do
-    case Keyword.get(config, :api_key) do
+  defp fetch_api_key do
+    case Dai.Config.api_key() do
       nil -> {:error, :api_error}
       key -> {:ok, key}
     end
   end
 
-  defp build_request_body(prompt, schema_context, config) do
+  defp build_request_body(prompt, schema_context) do
     %{
-      model: Keyword.get(config, :model, "claude-sonnet-4-6"),
-      max_tokens: Keyword.get(config, :max_tokens, 1024),
+      model: Dai.Config.model(),
+      max_tokens: Dai.Config.max_tokens(),
       system: Dai.AI.SystemPrompt.build(schema_context),
       messages: [%{role: "user", content: prompt}]
     }
