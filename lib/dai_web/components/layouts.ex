@@ -35,18 +35,6 @@ defmodule DaiWeb.Layouts do
 
   def app(assigns) do
     ~H"""
-    <header class="navbar px-4 sm:px-6 lg:px-8 border-b border-base-300">
-      <div class="flex-1">
-        <a href="/" class="flex items-center gap-2">
-          <.icon name="hero-chart-bar" class="size-6 text-primary" />
-          <span class="text-lg font-bold text-base-content">Dai</span>
-        </a>
-      </div>
-      <div class="flex-none">
-        <.theme_toggle />
-      </div>
-    </header>
-
     <main class="px-4 py-8 sm:px-6 lg:px-8">
       {render_slot(@inner_block)}
     </main>
