@@ -11,7 +11,7 @@ config :dai,
   ecto_repos: [Dai.Repo],
   generators: [timestamp_type: :utc_datetime],
   repo: Dai.Repo,
-  schema_contexts: [Dai.Demo.Analytics]
+  schema_contexts: [Dai.Analytics]
 
 # Configures the endpoint
 config :dai, DaiWeb.Endpoint,

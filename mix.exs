@@ -93,9 +93,7 @@ defmodule Dai.MixProject do
       dev: [
         "cmd bash scripts/kill_port.sh",
         "cmd bash scripts/load_env.sh -- mix phx.server"
-      ],
-      "ecto.migrate": ["ecto.migrate", "gen_schema_context"],
-      "phx.server": ["gen_schema_context", "phx.server"]
+      ]
     ]
   end
 end

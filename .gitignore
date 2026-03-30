@@ -38,9 +38,6 @@ npm-debug.log
 # Environment variables (may contain API keys)
 .env
 
-# Generated schema context (regenerated on migrate/server start)
-priv/ai/schema_context.json
-
 # Superpowers brainstorm sessions
 .superpowers/
 
