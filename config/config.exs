@@ -9,7 +9,9 @@ import Config
 
 config :dai,
   ecto_repos: [Dai.Repo],
-  generators: [timestamp_type: :utc_datetime]
+  generators: [timestamp_type: :utc_datetime],
+  repo: Dai.Repo,
+  schema_contexts: [Dai.Demo.Analytics]
 
 # Configures the endpoint
 config :dai, DaiWeb.Endpoint,
