@@ -22,11 +22,7 @@ defmodule Dai.DashboardLive do
           <div class="max-w-7xl mx-auto">
             <.query_input form={@form} loading={@loading} />
             <.loading_skeleton :if={@loading} />
-            <.results_grid
-              streams={@streams}
-              folders={@folders}
-              save_dropdown_open={@save_dropdown_open}
-            />
+            <.results_grid streams={@streams} folders={@folders} />
           </div>
         </div>
       </div>
@@ -129,7 +125,6 @@ defmodule Dai.DashboardLive do
 
   attr :streams, :any, required: true
   attr :folders, :list, default: []
-  attr :save_dropdown_open, :string, default: nil
 
   defp results_grid(assigns) do
     ~H"""
@@ -150,11 +145,7 @@ defmodule Dai.DashboardLive do
         </p>
       </div>
       <div :for={{dom_id, result} <- @streams.results} id={dom_id}>
-        <.result_card
-          result={result}
-          folders={@folders}
-          save_dropdown_open={@save_dropdown_open}
-        />
+        <.result_card result={result} folders={@folders} />
       </div>
     </div>
     """
@@ -177,8 +168,7 @@ defmodule Dai.DashboardLive do
        sidebar_open: false,
        folders: Folders.list_folders(),
        active_folder_id: nil,
-       folder_queries: [],
-       save_dropdown_open: nil
+       folder_queries: []
      )
      |> assign(:form, to_form(%{"prompt" => ""}, as: :query))
      |> stream(:results, [])}
@@ -211,23 +201,15 @@ defmodule Dai.DashboardLive do
     {:noreply, assign(socket, sidebar_open: !socket.assigns.sidebar_open)}
   end
 
-  def handle_event("toggle_save_dropdown", %{"id" => id}, socket) do
-    new_val = if socket.assigns.save_dropdown_open == id, do: nil, else: id
-    {:noreply, assign(socket, save_dropdown_open: new_val)}
-  end
-
   def handle_event("save_query", %{"folder-id" => folder_id, "prompt" => prompt} = params, socket) do
     title = Map.get(params, "title")
 
     case Folders.create_saved_query(%{folder_id: folder_id, prompt: prompt, title: title}) do
       {:ok, _query} ->
-        {:noreply,
-         socket
-         |> assign(save_dropdown_open: nil)
-         |> reload_folder_queries()}
+        {:noreply, reload_folder_queries(socket)}
 
       {:error, _changeset} ->
-        {:noreply, assign(socket, save_dropdown_open: nil)}
+        {:noreply, socket}
     end
   end
 
@@ -244,11 +226,10 @@ defmodule Dai.DashboardLive do
          folders: Folders.list_folders(),
          active_folder_id: folder.id,
          folder_queries: Folders.list_saved_queries(folder.id),
-         sidebar_open: true,
-         save_dropdown_open: nil
+         sidebar_open: true
        )}
     else
-      _ -> {:noreply, assign(socket, save_dropdown_open: nil)}
+      _ -> {:noreply, socket}
     end
   end
 

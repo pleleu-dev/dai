@@ -8,7 +8,6 @@ defmodule Dai.DashboardComponents do
 
   attr :result, Result, required: true
   attr :folders, :list, default: []
-  attr :save_dropdown_open, :string, default: nil
 
   def result_card(assigns) do
     ~H"""
@@ -31,7 +30,6 @@ defmodule Dai.DashboardComponents do
             prompt={@result.prompt}
             title={@result.title}
             folders={@folders}
-            open={@save_dropdown_open == @result.id}
           />
           <button
             phx-click="dismiss"

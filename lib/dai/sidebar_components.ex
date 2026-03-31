@@ -171,58 +171,60 @@ defmodule Dai.SidebarComponents do
   attr :prompt, :string, required: true
   attr :title, :string, default: nil
   attr :folders, :list, required: true
-  attr :open, :boolean, default: false
 
   def save_button(assigns) do
+    dropdown_id = "save-dropdown-#{assigns.result_id}"
+    assigns = assign(assigns, :dropdown_id, dropdown_id)
+
     ~H"""
     <div class="relative">
       <button
-        phx-click="toggle_save_dropdown"
-        phx-value-id={@result_id}
+        phx-click={toggle_dropdown(@dropdown_id)}
         class="btn btn-ghost btn-xs btn-circle opacity-50 hover:opacity-100"
         aria-label="Save query"
       >
         <Icons.bookmark class="size-4" />
       </button>
-      <.save_dropdown
-        :if={@open}
-        folders={@folders}
-        prompt={@prompt}
-        title={@title}
-      />
+      <div
+        id={@dropdown_id}
+        class="hidden absolute right-0 top-8 z-20 w-48 bg-base-100 border border-base-300 rounded-lg shadow-lg py-1"
+        phx-click-away={hide_dropdown(@dropdown_id)}
+      >
+        <button
+          :for={folder <- @folders}
+          phx-click={Phoenix.LiveView.JS.push("save_query") |> hide_dropdown(@dropdown_id)}
+          phx-value-folder-id={folder.id}
+          phx-value-prompt={@prompt}
+          phx-value-title={@title}
+          class="w-full text-left px-3 py-1.5 text-xs text-base-content/70 hover:bg-base-200 flex items-center gap-2"
+        >
+          <Icons.folder class="size-3 shrink-0" />
+          <span class="truncate">{folder.name}</span>
+        </button>
+        <div :if={@folders != []} class="border-t border-base-300 my-1"></div>
+        <button
+          phx-click={Phoenix.LiveView.JS.push("save_query_new_folder") |> hide_dropdown(@dropdown_id)}
+          phx-value-prompt={@prompt}
+          phx-value-title={@title}
+          class="w-full text-left px-3 py-1.5 text-xs text-primary hover:bg-base-200 flex items-center gap-2"
+        >
+          <Icons.plus class="size-3 shrink-0" />
+          <span>New folder...</span>
+        </button>
+      </div>
     </div>
     """
   end
 
-  attr :folders, :list, required: true
-  attr :prompt, :string, required: true
-  attr :title, :string, default: nil
+  defp toggle_dropdown(id) do
+    Phoenix.LiveView.JS.toggle(to: "##{id}", in: {"ease-out duration-100", "opacity-0 scale-95", "opacity-100 scale-100"}, out: {"ease-in duration-75", "opacity-100 scale-100", "opacity-0 scale-95"})
+  end
 
-  defp save_dropdown(assigns) do
-    ~H"""
-    <div class="absolute right-0 top-8 z-20 w-48 bg-base-100 border border-base-300 rounded-lg shadow-lg py-1">
-      <button
-        :for={folder <- @folders}
-        phx-click="save_query"
-        phx-value-folder-id={folder.id}
-        phx-value-prompt={@prompt}
-        phx-value-title={@title}
-        class="w-full text-left px-3 py-1.5 text-xs text-base-content/70 hover:bg-base-200 flex items-center gap-2"
-      >
-        <Icons.folder class="size-3 shrink-0" />
-        <span class="truncate">{folder.name}</span>
-      </button>
-      <div :if={@folders != []} class="border-t border-base-300 my-1"></div>
-      <button
-        phx-click="save_query_new_folder"
-        phx-value-prompt={@prompt}
-        phx-value-title={@title}
-        class="w-full text-left px-3 py-1.5 text-xs text-primary hover:bg-base-200 flex items-center gap-2"
-      >
-        <Icons.plus class="size-3 shrink-0" />
-        <span>New folder...</span>
-      </button>
-    </div>
-    """
+  defp hide_dropdown(%Phoenix.LiveView.JS{} = js, id) do
+    Phoenix.LiveView.JS.hide(js, to: "##{id}", transition: {"ease-in duration-75", "opacity-100 scale-100", "opacity-0 scale-95"})
+  end
+
+  defp hide_dropdown(id) do
+    Phoenix.LiveView.JS.hide(to: "##{id}", transition: {"ease-in duration-75", "opacity-100 scale-100", "opacity-0 scale-95"})
   end
 end
