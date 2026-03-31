@@ -9,8 +9,8 @@ defmodule Dai.Layouts do
 
   def app(assigns) do
     ~H"""
-    <div class="dai-dashboard">
-      <header class="navbar px-4 sm:px-6 lg:px-8 border-b border-base-300">
+    <div class="dai-dashboard h-screen flex flex-col">
+      <header class="navbar px-4 sm:px-6 lg:px-8 border-b border-base-300 shrink-0">
         <div class="flex-1">
           <span class="flex items-center gap-2">
             <Icons.chart_bar class="size-6 text-primary" />
@@ -18,7 +18,7 @@ defmodule Dai.Layouts do
           </span>
         </div>
       </header>
-      <main class="px-4 py-8 sm:px-6 lg:px-8">
+      <main class="flex-1 min-h-0">
         {render_slot(@inner_block)}
       </main>
     </div>
