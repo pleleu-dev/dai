@@ -7,6 +7,8 @@ defmodule Dai.DashboardComponents do
   alias Dai.Icons
 
   attr :result, Result, required: true
+  attr :folders, :list, default: []
+  attr :save_dropdown_open, :string, default: nil
 
   def result_card(assigns) do
     ~H"""
@@ -18,18 +20,28 @@ defmodule Dai.DashboardComponents do
       ]}
     >
       <div class="flex items-start justify-between p-4 pb-2">
-        <div>
+        <div class="min-w-0 flex-1">
           <h3 class="font-semibold text-base-content text-sm">{@result.title}</h3>
           <p class="text-xs text-base-content/60 mt-0.5">{@result.description}</p>
         </div>
-        <button
-          phx-click="dismiss"
-          phx-value-id={@result.id}
-          class="btn btn-ghost btn-xs btn-circle opacity-50 hover:opacity-100"
-          aria-label="Dismiss"
-        >
-          <Icons.x_mark class="size-4" />
-        </button>
+        <div class="flex items-center gap-0.5 shrink-0">
+          <Dai.SidebarComponents.save_button
+            :if={@result.type not in [:error, :clarification]}
+            result_id={@result.id}
+            prompt={@result.prompt}
+            title={@result.title}
+            folders={@folders}
+            open={@save_dropdown_open == @result.id}
+          />
+          <button
+            phx-click="dismiss"
+            phx-value-id={@result.id}
+            class="btn btn-ghost btn-xs btn-circle opacity-50 hover:opacity-100"
+            aria-label="Dismiss"
+          >
+            <Icons.x_mark class="size-4" />
+          </button>
+        </div>
       </div>
       <div class="p-4 pt-2">
         <.card_body result={@result} />
