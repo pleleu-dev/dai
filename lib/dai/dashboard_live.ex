@@ -2,18 +2,33 @@ defmodule Dai.DashboardLive do
   use Phoenix.LiveView
 
   alias Dai.AI.{QueryPipeline, Result}
-  alias Dai.{Icons, SchemaContext}
+  alias Dai.{Folders, Icons, SchemaContext}
 
   import Dai.DashboardComponents
+  import Dai.SidebarComponents, only: [sidebar: 1]
 
   @impl true
   def render(assigns) do
     ~H"""
     <.dai_wrapper host_layout={@dai_host_layout} flash={@flash}>
-      <div class="max-w-7xl mx-auto">
-        <.query_input form={@form} loading={@loading} />
-        <.loading_skeleton :if={@loading} />
-        <.results_grid streams={@streams} />
+      <div class="flex h-full">
+        <.sidebar
+          sidebar_open={@sidebar_open}
+          folders={@folders}
+          active_folder_id={@active_folder_id}
+          folder_queries={@folder_queries}
+        />
+        <div class="flex-1 min-w-0 p-6">
+          <div class="max-w-7xl mx-auto">
+            <.query_input form={@form} loading={@loading} />
+            <.loading_skeleton :if={@loading} />
+            <.results_grid
+              streams={@streams}
+              folders={@folders}
+              save_dropdown_open={@save_dropdown_open}
+            />
+          </div>
+        </div>
       </div>
     </.dai_wrapper>
     """
@@ -113,6 +128,8 @@ defmodule Dai.DashboardLive do
   end
 
   attr :streams, :any, required: true
+  attr :folders, :list, default: []
+  attr :save_dropdown_open, :string, default: nil
 
   defp results_grid(assigns) do
     ~H"""
@@ -133,7 +150,11 @@ defmodule Dai.DashboardLive do
         </p>
       </div>
       <div :for={{dom_id, result} <- @streams.results} id={dom_id}>
-        <.result_card result={result} />
+        <.result_card
+          result={result}
+          folders={@folders}
+          save_dropdown_open={@save_dropdown_open}
+        />
       </div>
     </div>
     """
@@ -147,7 +168,17 @@ defmodule Dai.DashboardLive do
 
     {:ok,
      socket
-     |> assign(loading: false, current_prompt: nil, task_ref: nil, dai_host_layout: host_layout)
+     |> assign(
+       loading: false,
+       current_prompt: nil,
+       task_ref: nil,
+       dai_host_layout: host_layout,
+       sidebar_open: false,
+       folders: Folders.list_folders(),
+       active_folder_id: nil,
+       folder_queries: [],
+       save_dropdown_open: nil
+     )
      |> assign(:form, to_form(%{"prompt" => ""}, as: :query))
      |> stream(:results, [])}
   end
@@ -171,6 +202,145 @@ defmodule Dai.DashboardLive do
 
   def handle_event("retry", %{"prompt" => prompt}, socket) do
     run_query(prompt, socket)
+  end
+
+  # --- Sidebar events ---
+
+  def handle_event("toggle_sidebar", _params, socket) do
+    {:noreply, assign(socket, sidebar_open: !socket.assigns.sidebar_open)}
+  end
+
+  def handle_event("toggle_save_dropdown", %{"id" => id}, socket) do
+    new_val = if socket.assigns.save_dropdown_open == id, do: nil, else: id
+    {:noreply, assign(socket, save_dropdown_open: new_val)}
+  end
+
+  def handle_event("save_query", %{"folder-id" => folder_id, "prompt" => prompt} = params, socket) do
+    title = Map.get(params, "title")
+
+    case Folders.create_saved_query(%{folder_id: folder_id, prompt: prompt, title: title}) do
+      {:ok, _query} ->
+        {:noreply,
+         socket
+         |> assign(save_dropdown_open: nil)
+         |> reload_folder_queries()}
+
+      {:error, _changeset} ->
+        {:noreply, assign(socket, save_dropdown_open: nil)}
+    end
+  end
+
+  def handle_event("save_query_new_folder", %{"prompt" => prompt} = params, socket) do
+    title = Map.get(params, "title")
+    position = length(socket.assigns.folders)
+
+    with {:ok, folder} <- Folders.create_folder(%{name: "New Folder", position: position}),
+         {:ok, _query} <- Folders.create_saved_query(%{folder_id: folder.id, prompt: prompt, title: title}) do
+      {:noreply,
+       socket
+       |> assign(
+         folders: Folders.list_folders(),
+         active_folder_id: folder.id,
+         folder_queries: Folders.list_saved_queries(folder.id),
+         sidebar_open: true,
+         save_dropdown_open: nil
+       )}
+    else
+      _ -> {:noreply, assign(socket, save_dropdown_open: nil)}
+    end
+  end
+
+  def handle_event("create_folder", _params, socket) do
+    position = length(socket.assigns.folders)
+
+    case Folders.create_folder(%{name: "New Folder", position: position}) do
+      {:ok, folder} ->
+        {:noreply,
+         socket
+         |> assign(
+           folders: Folders.list_folders(),
+           active_folder_id: folder.id,
+           folder_queries: []
+         )}
+
+      {:error, _} ->
+        {:noreply, socket}
+    end
+  end
+
+  def handle_event("load_folder", %{"id" => id}, socket) do
+    new_active = if socket.assigns.active_folder_id == id, do: nil, else: id
+
+    {:noreply,
+     socket
+     |> assign(
+       active_folder_id: new_active,
+       folder_queries: if(new_active, do: Folders.list_saved_queries(new_active), else: []),
+       sidebar_open: true
+     )}
+  end
+
+  def handle_event("run_saved_query", %{"prompt" => prompt}, socket) do
+    run_query(prompt, socket)
+  end
+
+  def handle_event("load_all_folder_queries", %{"id" => folder_id}, socket) do
+    queries = Folders.list_saved_queries(folder_id)
+
+    socket =
+      Enum.reduce(queries, socket, fn query, acc ->
+        task = Task.async(fn -> QueryPipeline.run(query.prompt, SchemaContext.get()) end)
+        assign(acc, task_ref: task.ref, loading: true, current_prompt: query.prompt)
+      end)
+
+    {:noreply, assign(socket, active_folder_id: folder_id, sidebar_open: true)}
+  end
+
+  def handle_event("delete_folder", %{"id" => id}, socket) do
+    folder = Folders.get_folder!(id)
+
+    case Folders.delete_folder(folder) do
+      {:ok, _} ->
+        new_active = if socket.assigns.active_folder_id == id, do: nil, else: socket.assigns.active_folder_id
+
+        {:noreply,
+         socket
+         |> assign(
+           folders: Folders.list_folders(),
+           active_folder_id: new_active,
+           folder_queries: if(new_active, do: Folders.list_saved_queries(new_active), else: [])
+         )}
+
+      {:error, _} ->
+        {:noreply, socket}
+    end
+  end
+
+  def handle_event("delete_saved_query", %{"id" => id}, socket) do
+    query = Folders.get_saved_query!(id)
+
+    case Folders.delete_saved_query(query) do
+      {:ok, _} -> {:noreply, reload_folder_queries(socket)}
+      {:error, _} -> {:noreply, socket}
+    end
+  end
+
+  def handle_event("rename_folder", %{"id" => id, "name" => name}, socket) do
+    folder = Folders.get_folder!(id)
+
+    case Folders.update_folder(folder, %{name: name}) do
+      {:ok, _} -> {:noreply, assign(socket, folders: Folders.list_folders())}
+      {:error, _} -> {:noreply, socket}
+    end
+  end
+
+  def handle_event("rename_saved_query", %{"id" => id, "title" => title}, socket) do
+    query = Folders.get_saved_query!(id)
+
+    case Folders.update_saved_query(query, %{title: title}) do
+      {:ok, _} -> {:noreply, reload_folder_queries(socket)}
+      {:error, _} -> {:noreply, socket}
+    end
   end
 
   @impl true
@@ -206,5 +376,12 @@ defmodule Dai.DashboardLive do
        task_ref: task.ref,
        form: to_form(%{"prompt" => ""}, as: :query)
      )}
+  end
+
+  defp reload_folder_queries(socket) do
+    case socket.assigns.active_folder_id do
+      nil -> socket
+      id -> assign(socket, folder_queries: Folders.list_saved_queries(id))
+    end
   end
 end
