@@ -29,7 +29,10 @@ defmodule Dai.SidebarComponents do
         >
           <Icons.bars_3 class="size-4" />
         </button>
-        <span :if={@sidebar_open} class="text-xs font-semibold text-base-content/70 uppercase tracking-wider">
+        <span
+          :if={@sidebar_open}
+          class="text-xs font-semibold text-base-content/70 uppercase tracking-wider"
+        >
           Folders
         </span>
         <button
@@ -89,7 +92,11 @@ defmodule Dai.SidebarComponents do
           folder.id == @active_folder_id && "bg-primary/10 text-primary",
           folder.id != @active_folder_id && "text-base-content/60 hover:bg-base-300/50"
         ]}>
-          <button phx-click="load_folder" phx-value-id={folder.id} class="flex items-center gap-1.5 flex-1 min-w-0">
+          <button
+            phx-click="load_folder"
+            phx-value-id={folder.id}
+            class="flex items-center gap-1.5 flex-1 min-w-0"
+          >
             <Icons.chevron_right class={[
               "size-3 shrink-0 transition-transform",
               folder.id == @active_folder_id && "rotate-90"

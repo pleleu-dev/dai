@@ -94,7 +94,9 @@ defmodule Dai.FoldersTest do
 
     test "update_saved_query/2 updates title", %{folder: folder} do
       {:ok, query} = Folders.create_saved_query(%{folder_id: folder.id, prompt: "test?"})
-      assert {:ok, %SavedQuery{title: "Renamed"}} = Folders.update_saved_query(query, %{title: "Renamed"})
+
+      assert {:ok, %SavedQuery{title: "Renamed"}} =
+               Folders.update_saved_query(query, %{title: "Renamed"})
     end
 
     test "delete_saved_query/1 removes the query", %{folder: folder} do

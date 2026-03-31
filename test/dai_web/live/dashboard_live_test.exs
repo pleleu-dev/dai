@@ -52,11 +52,15 @@ defmodule DaiWeb.DashboardLiveTest do
 
     test "load_folder expands sidebar and shows folder queries", %{conn: conn} do
       {:ok, folder} = Folders.create_folder(%{name: "Test Folder"})
-      {:ok, _query} = Folders.create_saved_query(%{folder_id: folder.id, prompt: "test question?"})
+
+      {:ok, _query} =
+        Folders.create_saved_query(%{folder_id: folder.id, prompt: "test question?"})
 
       {:ok, view, _html} = live(conn, "/")
 
-      view |> element("button[phx-click=load_folder][phx-value-id=\"#{folder.id}\"]") |> render_click()
+      view
+      |> element("button[phx-click=load_folder][phx-value-id=\"#{folder.id}\"]")
+      |> render_click()
 
       html = render(view)
       assert html =~ "test question?"
@@ -70,7 +74,10 @@ defmodule DaiWeb.DashboardLiveTest do
       view |> element("button[phx-click=toggle_sidebar]") |> render_click()
       assert render(view) =~ "Doomed Folder"
 
-      view |> element("button[phx-click=delete_folder][phx-value-id=\"#{folder.id}\"]") |> render_click()
+      view
+      |> element("button[phx-click=delete_folder][phx-value-id=\"#{folder.id}\"]")
+      |> render_click()
+
       refute render(view) =~ "Doomed Folder"
     end
 
@@ -80,10 +87,16 @@ defmodule DaiWeb.DashboardLiveTest do
 
       {:ok, view, _html} = live(conn, "/")
 
-      view |> element("button[phx-click=load_folder][phx-value-id=\"#{folder.id}\"]") |> render_click()
+      view
+      |> element("button[phx-click=load_folder][phx-value-id=\"#{folder.id}\"]")
+      |> render_click()
+
       assert render(view) =~ "doomed query?"
 
-      view |> element("button[phx-click=delete_saved_query][phx-value-id=\"#{query.id}\"]") |> render_click()
+      view
+      |> element("button[phx-click=delete_saved_query][phx-value-id=\"#{query.id}\"]")
+      |> render_click()
+
       refute render(view) =~ "doomed query?"
     end
   end

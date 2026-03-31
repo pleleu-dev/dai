@@ -235,7 +235,8 @@ defmodule Dai.DashboardLive do
     position = length(socket.assigns.folders)
 
     with {:ok, folder} <- Folders.create_folder(%{name: "New Folder", position: position}),
-         {:ok, _query} <- Folders.create_saved_query(%{folder_id: folder.id, prompt: prompt, title: title}) do
+         {:ok, _query} <-
+           Folders.create_saved_query(%{folder_id: folder.id, prompt: prompt, title: title}) do
       {:noreply,
        socket
        |> assign(
@@ -301,7 +302,8 @@ defmodule Dai.DashboardLive do
 
     case Folders.delete_folder(folder) do
       {:ok, _} ->
-        new_active = if socket.assigns.active_folder_id == id, do: nil, else: socket.assigns.active_folder_id
+        new_active =
+          if socket.assigns.active_folder_id == id, do: nil, else: socket.assigns.active_folder_id
 
         {:noreply,
          socket
