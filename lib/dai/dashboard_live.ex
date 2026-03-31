@@ -172,6 +172,7 @@ defmodule Dai.DashboardLive do
        loading: false,
        current_prompt: nil,
        task_ref: nil,
+       pending_tasks: %{},
        dai_host_layout: host_layout,
        sidebar_open: false,
        folders: Folders.list_folders(),
@@ -288,13 +289,19 @@ defmodule Dai.DashboardLive do
   def handle_event("load_all_folder_queries", %{"id" => folder_id}, socket) do
     queries = Folders.list_saved_queries(folder_id)
 
-    socket =
-      Enum.reduce(queries, socket, fn query, acc ->
+    pending =
+      Map.new(queries, fn query ->
         task = Task.async(fn -> QueryPipeline.run(query.prompt, SchemaContext.get()) end)
-        assign(acc, task_ref: task.ref, loading: true, current_prompt: query.prompt)
+        {task.ref, query.prompt}
       end)
 
-    {:noreply, assign(socket, active_folder_id: folder_id, sidebar_open: true)}
+    {:noreply,
+     assign(socket,
+       pending_tasks: Map.merge(socket.assigns[:pending_tasks] || %{}, pending),
+       loading: pending != %{},
+       active_folder_id: folder_id,
+       sidebar_open: true
+     )}
   end
 
   def handle_event("delete_folder", %{"id" => id}, socket) do
@@ -346,6 +353,7 @@ defmodule Dai.DashboardLive do
   end
 
   @impl true
+  # Single query result (from run_query)
   def handle_info({ref, result}, socket) when socket.assigns.task_ref == ref do
     Process.demonitor(ref, [:flush])
 
@@ -361,9 +369,44 @@ defmodule Dai.DashboardLive do
      |> assign(loading: false, task_ref: nil)}
   end
 
+  # Batch query result (from load_all_folder_queries)
+  def handle_info({ref, result}, socket) do
+    pending = socket.assigns[:pending_tasks] || %{}
+
+    if Map.has_key?(pending, ref) do
+      Process.demonitor(ref, [:flush])
+      prompt = pending[ref]
+      remaining = Map.delete(pending, ref)
+
+      card =
+        case result do
+          {:ok, r} -> r
+          {:error, reason} -> Result.error(reason, prompt)
+        end
+
+      {:noreply,
+       socket
+       |> stream_insert(:results, card, at: 0)
+       |> assign(pending_tasks: remaining, loading: remaining != %{})}
+    else
+      {:noreply, socket}
+    end
+  end
+
   def handle_info({:DOWN, ref, :process, _pid, _reason}, socket)
       when socket.assigns.task_ref == ref do
     {:noreply, assign(socket, loading: false, task_ref: nil)}
+  end
+
+  def handle_info({:DOWN, ref, :process, _pid, _reason}, socket) do
+    pending = socket.assigns[:pending_tasks] || %{}
+
+    if Map.has_key?(pending, ref) do
+      remaining = Map.delete(pending, ref)
+      {:noreply, assign(socket, pending_tasks: remaining, loading: remaining != %{})}
+    else
+      {:noreply, socket}
+    end
   end
 
   def handle_info(_msg, socket), do: {:noreply, socket}

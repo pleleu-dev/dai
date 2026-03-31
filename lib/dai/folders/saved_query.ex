@@ -26,10 +26,10 @@ defmodule Dai.Folders.SavedQuery do
   end
 
   defp set_default_title(changeset) do
-    case get_field(changeset, :title) do
-      nil -> put_change(changeset, :title, truncate_prompt(get_field(changeset, :prompt)))
-      "" -> put_change(changeset, :title, truncate_prompt(get_field(changeset, :prompt)))
-      _ -> changeset
+    if get_field(changeset, :title) in [nil, ""] do
+      put_change(changeset, :title, truncate_prompt(get_field(changeset, :prompt)))
+    else
+      changeset
     end
   end
 
