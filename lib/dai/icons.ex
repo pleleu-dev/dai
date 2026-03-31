@@ -2,7 +2,7 @@ defmodule Dai.Icons do
   @moduledoc false
   use Phoenix.Component
 
-  attr :class, :string, default: "size-5"
+  attr :class, :any, default: "size-5"
 
   def sparkles(assigns) do
     ~H"""
@@ -16,7 +16,7 @@ defmodule Dai.Icons do
     """
   end
 
-  attr :class, :string, default: "size-5"
+  attr :class, :any, default: "size-5"
 
   def chart_bar(assigns) do
     ~H"""
@@ -26,7 +26,7 @@ defmodule Dai.Icons do
     """
   end
 
-  attr :class, :string, default: "size-4"
+  attr :class, :any, default: "size-4"
 
   def arrow_up(assigns) do
     ~H"""
@@ -40,7 +40,7 @@ defmodule Dai.Icons do
     """
   end
 
-  attr :class, :string, default: "size-4"
+  attr :class, :any, default: "size-4"
 
   def x_mark(assigns) do
     ~H"""
@@ -50,7 +50,7 @@ defmodule Dai.Icons do
     """
   end
 
-  attr :class, :string, default: "size-5"
+  attr :class, :any, default: "size-5"
 
   def exclamation_triangle(assigns) do
     ~H"""
@@ -64,7 +64,7 @@ defmodule Dai.Icons do
     """
   end
 
-  attr :class, :string, default: "size-5"
+  attr :class, :any, default: "size-5"
 
   def chat_bubble(assigns) do
     ~H"""
@@ -78,7 +78,7 @@ defmodule Dai.Icons do
     """
   end
 
-  attr :class, :string, default: "size-4"
+  attr :class, :any, default: "size-4"
 
   def bookmark(assigns) do
     ~H"""
@@ -92,7 +92,7 @@ defmodule Dai.Icons do
     """
   end
 
-  attr :class, :string, default: "size-4"
+  attr :class, :any, default: "size-4"
 
   def folder(assigns) do
     ~H"""
@@ -102,7 +102,7 @@ defmodule Dai.Icons do
     """
   end
 
-  attr :class, :string, default: "size-4"
+  attr :class, :any, default: "size-4"
 
   def plus(assigns) do
     ~H"""
@@ -116,7 +116,7 @@ defmodule Dai.Icons do
     """
   end
 
-  attr :class, :string, default: "size-4"
+  attr :class, :any, default: "size-4"
 
   def trash(assigns) do
     ~H"""
@@ -130,7 +130,7 @@ defmodule Dai.Icons do
     """
   end
 
-  attr :class, :string, default: "size-4"
+  attr :class, :any, default: "size-4"
 
   def pencil(assigns) do
     ~H"""
@@ -141,7 +141,7 @@ defmodule Dai.Icons do
     """
   end
 
-  attr :class, :string, default: "size-4"
+  attr :class, :any, default: "size-4"
 
   def chevron_right(assigns) do
     ~H"""
@@ -155,7 +155,7 @@ defmodule Dai.Icons do
     """
   end
 
-  attr :class, :string, default: "size-4"
+  attr :class, :any, default: "size-4"
 
   def bars_3(assigns) do
     ~H"""
@@ -169,7 +169,7 @@ defmodule Dai.Icons do
     """
   end
 
-  attr :class, :string, default: "size-4"
+  attr :class, :any, default: "size-4"
 
   def check(assigns) do
     ~H"""
@@ -183,7 +183,7 @@ defmodule Dai.Icons do
     """
   end
 
-  attr :class, :string, default: "size-4"
+  attr :class, :any, default: "size-4"
 
   def play(assigns) do
     ~H"""
