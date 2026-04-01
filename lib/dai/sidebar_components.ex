@@ -102,8 +102,41 @@ defmodule Dai.SidebarComponents do
               folder.id == @active_folder_id && "rotate-90"
             ]} />
             <Icons.folder class="size-4 shrink-0" />
-            <span class="truncate text-xs">{folder.name}</span>
+            <span
+              id={"folder-name-#{folder.id}"}
+              class="truncate text-xs"
+              phx-dblclick={
+                Phoenix.LiveView.JS.hide(to: "#folder-name-#{folder.id}")
+                |> Phoenix.LiveView.JS.show(to: "#folder-rename-#{folder.id}")
+                |> Phoenix.LiveView.JS.focus(to: "#folder-rename-input-#{folder.id}")
+              }
+            >
+              {folder.name}
+            </span>
           </button>
+          <form
+            id={"folder-rename-#{folder.id}"}
+            class="hidden flex-1 min-w-0"
+            phx-submit="rename_folder"
+            phx-value-id={folder.id}
+            phx-click-away={
+              Phoenix.LiveView.JS.hide(to: "#folder-rename-#{folder.id}")
+              |> Phoenix.LiveView.JS.show(to: "#folder-name-#{folder.id}")
+            }
+          >
+            <input
+              id={"folder-rename-input-#{folder.id}"}
+              type="text"
+              name="name"
+              value={folder.name}
+              class="w-full text-xs bg-base-100 border border-base-300 rounded px-1 py-0.5 focus:outline-none focus:border-primary"
+              phx-keydown={
+                Phoenix.LiveView.JS.hide(to: "#folder-rename-#{folder.id}")
+                |> Phoenix.LiveView.JS.show(to: "#folder-name-#{folder.id}")
+              }
+              phx-key="Escape"
+            />
+          </form>
           <button
             phx-click="load_all_folder_queries"
             phx-value-id={folder.id}
