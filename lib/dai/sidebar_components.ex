@@ -87,8 +87,9 @@ defmodule Dai.SidebarComponents do
         No folders yet
       </div>
       <div :for={folder <- @folders} class="mb-1">
+        <%!-- Folder row: click to open, ... menu for actions --%>
         <div class={[
-          "flex items-center gap-1 px-2 py-1.5 rounded-md text-sm cursor-pointer group transition-colors",
+          "flex items-center gap-1 px-2 py-1.5 rounded-md text-sm group transition-colors",
           folder.id == @active_folder_id && "bg-primary/10 text-primary",
           folder.id != @active_folder_id && "text-base-content/60 hover:bg-base-300/50"
         ]}>
@@ -102,27 +103,19 @@ defmodule Dai.SidebarComponents do
               folder.id == @active_folder_id && "rotate-90"
             ]} />
             <Icons.folder class="size-4 shrink-0" />
-            <span
-              id={"folder-name-#{folder.id}"}
-              class="truncate text-xs"
-              phx-dblclick={
-                Phoenix.LiveView.JS.hide(to: "#folder-name-#{folder.id}")
-                |> Phoenix.LiveView.JS.show(to: "#folder-rename-#{folder.id}")
-                |> Phoenix.LiveView.JS.focus(to: "#folder-rename-input-#{folder.id}")
-              }
-            >
+            <%!-- Normal label (visible by default) --%>
+            <span id={"folder-name-#{folder.id}"} class="truncate text-xs">
               {folder.name}
             </span>
           </button>
+
+          <%!-- Inline rename form (hidden by default, shown by menu action) --%>
           <form
             id={"folder-rename-#{folder.id}"}
             class="hidden flex-1 min-w-0"
             phx-submit="rename_folder"
             phx-value-id={folder.id}
-            phx-click-away={
-              Phoenix.LiveView.JS.hide(to: "#folder-rename-#{folder.id}")
-              |> Phoenix.LiveView.JS.show(to: "#folder-name-#{folder.id}")
-            }
+            phx-click-away={cancel_rename(folder.id)}
           >
             <input
               id={"folder-rename-input-#{folder.id}"}
@@ -130,29 +123,56 @@ defmodule Dai.SidebarComponents do
               name="name"
               value={folder.name}
               class="w-full text-xs bg-base-100 border border-base-300 rounded px-1 py-0.5 focus:outline-none focus:border-primary"
-              phx-keydown={
-                Phoenix.LiveView.JS.hide(to: "#folder-rename-#{folder.id}")
-                |> Phoenix.LiveView.JS.show(to: "#folder-name-#{folder.id}")
-              }
+              phx-keydown={cancel_rename(folder.id)}
               phx-key="Escape"
             />
           </form>
-          <button
-            phx-click="load_all_folder_queries"
-            phx-value-id={folder.id}
-            class="opacity-0 group-hover:opacity-60 hover:!opacity-100 transition-opacity"
-            title="Load all queries"
-          >
-            <Icons.play class="size-3" />
-          </button>
-          <button
-            phx-click="delete_folder"
-            phx-value-id={folder.id}
-            class="opacity-0 group-hover:opacity-60 hover:!opacity-100 text-error transition-opacity"
-            title="Delete folder"
-          >
-            <Icons.trash class="size-3" />
-          </button>
+
+          <%!-- Action menu trigger --%>
+          <div class="relative">
+            <button
+              phx-click={toggle_dropdown("folder-menu-#{folder.id}")}
+              class="opacity-0 group-hover:opacity-60 hover:!opacity-100 transition-opacity p-0.5 rounded hover:bg-base-300/50"
+              aria-label="Folder actions"
+            >
+              <Icons.ellipsis_vertical class="size-3.5" />
+            </button>
+            <%!-- Dropdown menu --%>
+            <div
+              id={"folder-menu-#{folder.id}"}
+              class="hidden absolute right-0 top-6 z-30 w-36 bg-base-100 border border-base-300 rounded-lg shadow-lg py-1"
+              phx-click-away={hide_dropdown("folder-menu-#{folder.id}")}
+            >
+              <button
+                phx-click={start_rename(folder.id)}
+                class="w-full text-left px-3 py-1.5 text-xs text-base-content/70 hover:bg-base-200 flex items-center gap-2"
+              >
+                <Icons.pencil class="size-3 shrink-0" />
+                <span>Rename</span>
+              </button>
+              <button
+                phx-click={
+                  Phoenix.LiveView.JS.push("load_all_folder_queries", value: %{id: folder.id})
+                  |> hide_dropdown("folder-menu-#{folder.id}")
+                }
+                class="w-full text-left px-3 py-1.5 text-xs text-base-content/70 hover:bg-base-200 flex items-center gap-2"
+              >
+                <Icons.play class="size-3 shrink-0" />
+                <span>Run all queries</span>
+              </button>
+              <div class="border-t border-base-300 my-1"></div>
+              <button
+                phx-click={
+                  Phoenix.LiveView.JS.push("delete_folder", value: %{id: folder.id})
+                  |> hide_dropdown("folder-menu-#{folder.id}")
+                }
+                class="w-full text-left px-3 py-1.5 text-xs text-error hover:bg-base-200 flex items-center gap-2"
+              >
+                <Icons.trash class="size-3 shrink-0" />
+                <span>Delete</span>
+              </button>
+            </div>
+          </div>
         </div>
         <.folder_query_list
           :if={folder.id == @active_folder_id}
@@ -259,5 +279,17 @@ defmodule Dai.SidebarComponents do
 
   defp hide_dropdown(id) do
     Phoenix.LiveView.JS.hide(to: "##{id}", transition: {"ease-in duration-75", "opacity-100 scale-100", "opacity-0 scale-95"})
+  end
+
+  defp start_rename(folder_id) do
+    Phoenix.LiveView.JS.hide(to: "#folder-menu-#{folder_id}")
+    |> Phoenix.LiveView.JS.hide(to: "#folder-name-#{folder_id}")
+    |> Phoenix.LiveView.JS.show(to: "#folder-rename-#{folder_id}")
+    |> Phoenix.LiveView.JS.focus(to: "#folder-rename-input-#{folder_id}")
+  end
+
+  defp cancel_rename(folder_id) do
+    Phoenix.LiveView.JS.hide(to: "#folder-rename-#{folder_id}")
+    |> Phoenix.LiveView.JS.show(to: "#folder-name-#{folder_id}")
   end
 end

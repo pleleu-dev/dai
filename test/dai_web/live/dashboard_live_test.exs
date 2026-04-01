@@ -74,9 +74,7 @@ defmodule DaiWeb.DashboardLiveTest do
       view |> element("button[phx-click=toggle_sidebar]") |> render_click()
       assert render(view) =~ "Doomed Folder"
 
-      view
-      |> element("button[phx-click=delete_folder][phx-value-id=\"#{folder.id}\"]")
-      |> render_click()
+      render_hook(view, "delete_folder", %{"id" => folder.id})
 
       refute render(view) =~ "Doomed Folder"
     end
