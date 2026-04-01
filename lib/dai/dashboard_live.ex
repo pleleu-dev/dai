@@ -174,13 +174,13 @@ defmodule Dai.DashboardLive do
      |> stream(:results, [])}
   end
 
+  # --- Query events ---
+
   @impl true
-  # Form submission (wrapped in :query key by <.form as={:query}>)
   def handle_event("query", %{"query" => %{"prompt" => prompt}}, socket) when prompt != "" do
     run_query(prompt, socket)
   end
 
-  # Clarification card / retry (bare prompt key)
   def handle_event("query", %{"prompt" => prompt}, socket) when prompt != "" do
     run_query(prompt, socket)
   end
@@ -202,49 +202,43 @@ defmodule Dai.DashboardLive do
   end
 
   def handle_event("save_query", %{"folder-id" => folder_id, "prompt" => prompt} = params, socket) do
-    title = Map.get(params, "title")
-
-    case Folders.create_saved_query(%{folder_id: folder_id, prompt: prompt, title: title}) do
-      {:ok, _query} ->
-        {:noreply, reload_folder_queries(socket)}
-
-      {:error, _changeset} ->
-        {:noreply, socket}
+    case Folders.create_saved_query(%{
+           folder_id: folder_id,
+           prompt: prompt,
+           title: params["title"]
+         }) do
+      {:ok, _} -> {:noreply, reload_folder_queries(socket)}
+      {:error, _} -> {:noreply, socket}
     end
   end
 
   def handle_event("save_query_new_folder", %{"prompt" => prompt} = params, socket) do
-    title = Map.get(params, "title")
-    position = length(socket.assigns.folders)
+    case Folders.save_query_to_new_folder(prompt, params["title"], length(socket.assigns.folders)) do
+      {:ok, %{folder: folder}} ->
+        {:noreply,
+         socket
+         |> reload_folders()
+         |> assign(
+           active_folder_id: folder.id,
+           folder_queries: Folders.list_saved_queries(folder.id),
+           sidebar_open: true
+         )}
 
-    with {:ok, folder} <- Folders.create_folder(%{name: "New Folder", position: position}),
-         {:ok, _query} <-
-           Folders.create_saved_query(%{folder_id: folder.id, prompt: prompt, title: title}) do
-      {:noreply,
-       socket
-       |> assign(
-         folders: Folders.list_folders(),
-         active_folder_id: folder.id,
-         folder_queries: Folders.list_saved_queries(folder.id),
-         sidebar_open: true
-       )}
-    else
-      _ -> {:noreply, socket}
+      {:error, _, _, _} ->
+        {:noreply, socket}
     end
   end
 
   def handle_event("create_folder", _params, socket) do
-    position = length(socket.assigns.folders)
-
-    case Folders.create_folder(%{name: "New Folder", position: position}) do
+    case Folders.create_folder(%{
+           name: Folders.default_folder_name(),
+           position: length(socket.assigns.folders)
+         }) do
       {:ok, folder} ->
         {:noreply,
          socket
-         |> assign(
-           folders: Folders.list_folders(),
-           active_folder_id: folder.id,
-           folder_queries: []
-         )}
+         |> reload_folders()
+         |> assign(active_folder_id: folder.id, folder_queries: [])}
 
       {:error, _} ->
         {:noreply, socket}
@@ -255,8 +249,7 @@ defmodule Dai.DashboardLive do
     new_active = if socket.assigns.active_folder_id == id, do: nil, else: id
 
     {:noreply,
-     socket
-     |> assign(
+     assign(socket,
        active_folder_id: new_active,
        folder_queries: if(new_active, do: Folders.list_saved_queries(new_active), else: []),
        sidebar_open: true
@@ -278,7 +271,7 @@ defmodule Dai.DashboardLive do
 
     {:noreply,
      assign(socket,
-       pending_tasks: Map.merge(socket.assigns[:pending_tasks] || %{}, pending),
+       pending_tasks: Map.merge(socket.assigns.pending_tasks, pending),
        loading: pending != %{},
        active_folder_id: folder_id,
        sidebar_open: true
@@ -286,17 +279,15 @@ defmodule Dai.DashboardLive do
   end
 
   def handle_event("delete_folder", %{"id" => id}, socket) do
-    folder = Folders.get_folder!(id)
-
-    case Folders.delete_folder(folder) do
+    case Folders.delete_folder_by_id(id) do
       {:ok, _} ->
         new_active =
           if socket.assigns.active_folder_id == id, do: nil, else: socket.assigns.active_folder_id
 
         {:noreply,
          socket
+         |> reload_folders()
          |> assign(
-           folders: Folders.list_folders(),
            active_folder_id: new_active,
            folder_queries: if(new_active, do: Folders.list_saved_queries(new_active), else: [])
          )}
@@ -307,67 +298,50 @@ defmodule Dai.DashboardLive do
   end
 
   def handle_event("delete_saved_query", %{"id" => id}, socket) do
-    query = Folders.get_saved_query!(id)
-
-    case Folders.delete_saved_query(query) do
+    case Folders.delete_saved_query_by_id(id) do
       {:ok, _} -> {:noreply, reload_folder_queries(socket)}
       {:error, _} -> {:noreply, socket}
     end
   end
 
   def handle_event("rename_folder", %{"id" => id, "name" => name}, socket) do
-    folder = Folders.get_folder!(id)
-
-    case Folders.update_folder(folder, %{name: name}) do
-      {:ok, _} -> {:noreply, assign(socket, folders: Folders.list_folders())}
+    case Folders.rename_folder(id, name) do
+      {:ok, _} -> {:noreply, reload_folders(socket)}
       {:error, _} -> {:noreply, socket}
     end
   end
 
   def handle_event("rename_saved_query", %{"id" => id, "title" => title}, socket) do
-    query = Folders.get_saved_query!(id)
-
-    case Folders.update_saved_query(query, %{title: title}) do
+    case Folders.rename_saved_query(id, title) do
       {:ok, _} -> {:noreply, reload_folder_queries(socket)}
       {:error, _} -> {:noreply, socket}
     end
   end
+
+  # --- Task results ---
 
   @impl true
   # Single query result (from run_query)
   def handle_info({ref, result}, socket) when socket.assigns.task_ref == ref do
     Process.demonitor(ref, [:flush])
 
-    card =
-      case result do
-        {:ok, r} -> r
-        {:error, reason} -> Result.error(reason, socket.assigns.current_prompt)
-      end
-
     {:noreply,
      socket
-     |> stream_insert(:results, card, at: 0)
+     |> stream_insert(:results, result_to_card(result, socket.assigns.current_prompt), at: 0)
      |> assign(loading: false, task_ref: nil)}
   end
 
   # Batch query result (from load_all_folder_queries)
   def handle_info({ref, result}, socket) do
-    pending = socket.assigns[:pending_tasks] || %{}
+    pending = socket.assigns.pending_tasks
 
     if Map.has_key?(pending, ref) do
       Process.demonitor(ref, [:flush])
-      prompt = pending[ref]
       remaining = Map.delete(pending, ref)
-
-      card =
-        case result do
-          {:ok, r} -> r
-          {:error, reason} -> Result.error(reason, prompt)
-        end
 
       {:noreply,
        socket
-       |> stream_insert(:results, card, at: 0)
+       |> stream_insert(:results, result_to_card(result, pending[ref]), at: 0)
        |> assign(pending_tasks: remaining, loading: remaining != %{})}
     else
       {:noreply, socket}
@@ -380,7 +354,7 @@ defmodule Dai.DashboardLive do
   end
 
   def handle_info({:DOWN, ref, :process, _pid, _reason}, socket) do
-    pending = socket.assigns[:pending_tasks] || %{}
+    pending = socket.assigns.pending_tasks
 
     if Map.has_key?(pending, ref) do
       remaining = Map.delete(pending, ref)
@@ -391,6 +365,8 @@ defmodule Dai.DashboardLive do
   end
 
   def handle_info(_msg, socket), do: {:noreply, socket}
+
+  # --- Private helpers ---
 
   defp run_query(prompt, socket) do
     task = Task.async(fn -> QueryPipeline.run(prompt, SchemaContext.get()) end)
@@ -403,6 +379,11 @@ defmodule Dai.DashboardLive do
        form: to_form(%{"prompt" => ""}, as: :query)
      )}
   end
+
+  defp result_to_card({:ok, result}, _prompt), do: result
+  defp result_to_card({:error, reason}, prompt), do: Result.error(reason, prompt)
+
+  defp reload_folders(socket), do: assign(socket, folders: Folders.list_folders())
 
   defp reload_folder_queries(socket) do
     case socket.assigns.active_folder_id do

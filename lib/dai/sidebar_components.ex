@@ -4,6 +4,7 @@ defmodule Dai.SidebarComponents do
   use Phoenix.Component
 
   alias Dai.Icons
+  alias Phoenix.LiveView.JS
 
   attr :sidebar_open, :boolean, required: true
   attr :folders, :list, required: true
@@ -113,7 +114,7 @@ defmodule Dai.SidebarComponents do
             id={"folder-rename-#{folder.id}"}
             class="hidden flex-1 min-w-0 ml-5"
             phx-submit={
-              Phoenix.LiveView.JS.push("rename_folder", value: %{id: folder.id})
+              JS.push("rename_folder", value: %{id: folder.id})
               |> cancel_rename(folder.id)
             }
             phx-click-away={cancel_rename(folder.id)}
@@ -122,7 +123,7 @@ defmodule Dai.SidebarComponents do
               id={"folder-rename-input-#{folder.id}"}
               type="text"
               name="name"
-              value={if(folder.name == "New Folder", do: "", else: folder.name)}
+              value={if(folder.name == Dai.Folders.default_folder_name(), do: "", else: folder.name)}
               placeholder="Folder name..."
               class="w-full text-xs bg-transparent border-b border-base-content/20 px-0 py-0.5 outline-none focus:border-primary transition-colors"
               phx-keydown={cancel_rename(folder.id)}
@@ -154,7 +155,7 @@ defmodule Dai.SidebarComponents do
               </button>
               <button
                 phx-click={
-                  Phoenix.LiveView.JS.push("load_all_folder_queries", value: %{id: folder.id})
+                  JS.push("load_all_folder_queries", value: %{id: folder.id})
                   |> hide_dropdown("folder-menu-#{folder.id}")
                 }
                 class="w-full text-left px-3 py-1.5 text-xs text-base-content/70 hover:bg-base-200 flex items-center gap-2"
@@ -165,7 +166,7 @@ defmodule Dai.SidebarComponents do
               <div class="border-t border-base-300 my-1"></div>
               <button
                 phx-click={
-                  Phoenix.LiveView.JS.push("delete_folder", value: %{id: folder.id})
+                  JS.push("delete_folder", value: %{id: folder.id})
                   |> hide_dropdown("folder-menu-#{folder.id}")
                 }
                 class="w-full text-left px-3 py-1.5 text-xs text-error hover:bg-base-200 flex items-center gap-2"
@@ -247,7 +248,7 @@ defmodule Dai.SidebarComponents do
       >
         <button
           :for={folder <- @folders}
-          phx-click={Phoenix.LiveView.JS.push("save_query") |> hide_dropdown(@dropdown_id)}
+          phx-click={JS.push("save_query") |> hide_dropdown(@dropdown_id)}
           phx-value-folder-id={folder.id}
           phx-value-prompt={@prompt}
           phx-value-title={@title}
@@ -258,7 +259,7 @@ defmodule Dai.SidebarComponents do
         </button>
         <div :if={@folders != []} class="border-t border-base-300 my-1"></div>
         <button
-          phx-click={Phoenix.LiveView.JS.push("save_query_new_folder") |> hide_dropdown(@dropdown_id)}
+          phx-click={JS.push("save_query_new_folder") |> hide_dropdown(@dropdown_id)}
           phx-value-prompt={@prompt}
           phx-value-title={@title}
           class="w-full text-left px-3 py-1.5 text-xs text-primary hover:bg-base-200 flex items-center gap-2"
@@ -272,35 +273,45 @@ defmodule Dai.SidebarComponents do
   end
 
   defp toggle_dropdown(id) do
-    Phoenix.LiveView.JS.toggle(to: "##{id}", in: {"ease-out duration-100", "opacity-0 scale-95", "opacity-100 scale-100"}, out: {"ease-in duration-75", "opacity-100 scale-100", "opacity-0 scale-95"})
+    JS.toggle(
+      to: "##{id}",
+      in: {"ease-out duration-100", "opacity-0 scale-95", "opacity-100 scale-100"},
+      out: {"ease-in duration-75", "opacity-100 scale-100", "opacity-0 scale-95"}
+    )
   end
 
   defp hide_dropdown(%Phoenix.LiveView.JS{} = js, id) do
-    Phoenix.LiveView.JS.hide(js, to: "##{id}", transition: {"ease-in duration-75", "opacity-100 scale-100", "opacity-0 scale-95"})
+    JS.hide(js,
+      to: "##{id}",
+      transition: {"ease-in duration-75", "opacity-100 scale-100", "opacity-0 scale-95"}
+    )
   end
 
   defp hide_dropdown(id) do
-    Phoenix.LiveView.JS.hide(to: "##{id}", transition: {"ease-in duration-75", "opacity-100 scale-100", "opacity-0 scale-95"})
+    JS.hide(
+      to: "##{id}",
+      transition: {"ease-in duration-75", "opacity-100 scale-100", "opacity-0 scale-95"}
+    )
   end
 
   defp start_rename(folder_id) do
-    Phoenix.LiveView.JS.hide(to: "#folder-menu-#{folder_id}")
-    |> Phoenix.LiveView.JS.hide(to: "#folder-row-#{folder_id}")
-    |> Phoenix.LiveView.JS.hide(to: "#folder-actions-#{folder_id}")
-    |> Phoenix.LiveView.JS.show(to: "#folder-rename-#{folder_id}")
-    |> Phoenix.LiveView.JS.focus(to: "#folder-rename-input-#{folder_id}")
+    JS.hide(to: "#folder-menu-#{folder_id}")
+    |> JS.hide(to: "#folder-row-#{folder_id}")
+    |> JS.hide(to: "#folder-actions-#{folder_id}")
+    |> JS.show(to: "#folder-rename-#{folder_id}")
+    |> JS.focus(to: "#folder-rename-input-#{folder_id}")
   end
 
   defp cancel_rename(%Phoenix.LiveView.JS{} = js, folder_id) do
     js
-    |> Phoenix.LiveView.JS.hide(to: "#folder-rename-#{folder_id}")
-    |> Phoenix.LiveView.JS.show(to: "#folder-row-#{folder_id}", display: "flex")
-    |> Phoenix.LiveView.JS.show(to: "#folder-actions-#{folder_id}")
+    |> JS.hide(to: "#folder-rename-#{folder_id}")
+    |> JS.show(to: "#folder-row-#{folder_id}", display: "flex")
+    |> JS.show(to: "#folder-actions-#{folder_id}")
   end
 
   defp cancel_rename(folder_id) do
-    Phoenix.LiveView.JS.hide(to: "#folder-rename-#{folder_id}")
-    |> Phoenix.LiveView.JS.show(to: "#folder-row-#{folder_id}", display: "flex")
-    |> Phoenix.LiveView.JS.show(to: "#folder-actions-#{folder_id}")
+    JS.hide(to: "#folder-rename-#{folder_id}")
+    |> JS.show(to: "#folder-row-#{folder_id}", display: "flex")
+    |> JS.show(to: "#folder-actions-#{folder_id}")
   end
 end
