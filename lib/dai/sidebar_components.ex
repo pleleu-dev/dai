@@ -93,7 +93,9 @@ defmodule Dai.SidebarComponents do
           folder.id == @active_folder_id && "bg-primary/10 text-primary",
           folder.id != @active_folder_id && "text-base-content/60 hover:bg-base-300/50"
         ]}>
+          <%!-- Normal row (visible by default) --%>
           <button
+            id={"folder-row-#{folder.id}"}
             phx-click="load_folder"
             phx-value-id={folder.id}
             class="flex items-center gap-1.5 flex-1 min-w-0"
@@ -103,26 +105,25 @@ defmodule Dai.SidebarComponents do
               folder.id == @active_folder_id && "rotate-90"
             ]} />
             <Icons.folder class="size-4 shrink-0" />
-            <%!-- Normal label (visible by default) --%>
-            <span id={"folder-name-#{folder.id}"} class="truncate text-xs">
-              {folder.name}
-            </span>
+            <span class="truncate text-xs">{folder.name}</span>
           </button>
 
-          <%!-- Inline rename form (hidden by default, shown by menu action) --%>
+          <%!-- Inline rename form (hidden by default, replaces entire row) --%>
           <form
             id={"folder-rename-#{folder.id}"}
-            class="hidden flex-1 min-w-0"
+            class="hidden flex items-center gap-1.5 flex-1 min-w-0"
             phx-submit="rename_folder"
             phx-value-id={folder.id}
             phx-click-away={cancel_rename(folder.id)}
           >
+            <Icons.folder class="size-4 shrink-0" />
             <input
               id={"folder-rename-input-#{folder.id}"}
               type="text"
               name="name"
-              value={folder.name}
-              class="w-full text-xs bg-base-100 border border-base-300 rounded px-1 py-0.5 focus:outline-none focus:border-primary"
+              value={if(folder.name == "New Folder", do: "", else: folder.name)}
+              placeholder="Folder name..."
+              class="w-full text-xs bg-base-100 border border-base-300 rounded px-1.5 py-1 focus:outline-none focus:border-primary"
               phx-keydown={cancel_rename(folder.id)}
               phx-key="Escape"
             />
@@ -283,13 +284,13 @@ defmodule Dai.SidebarComponents do
 
   defp start_rename(folder_id) do
     Phoenix.LiveView.JS.hide(to: "#folder-menu-#{folder_id}")
-    |> Phoenix.LiveView.JS.hide(to: "#folder-name-#{folder_id}")
+    |> Phoenix.LiveView.JS.hide(to: "#folder-row-#{folder_id}")
     |> Phoenix.LiveView.JS.show(to: "#folder-rename-#{folder_id}")
     |> Phoenix.LiveView.JS.focus(to: "#folder-rename-input-#{folder_id}")
   end
 
   defp cancel_rename(folder_id) do
     Phoenix.LiveView.JS.hide(to: "#folder-rename-#{folder_id}")
-    |> Phoenix.LiveView.JS.show(to: "#folder-name-#{folder_id}")
+    |> Phoenix.LiveView.JS.show(to: "#folder-row-#{folder_id}")
   end
 end
