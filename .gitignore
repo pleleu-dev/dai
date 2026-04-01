@@ -44,3 +44,6 @@ npm-debug.log
 # Windows metadata files
 *:Zone.Identifier
 
+# Playwright MCP screenshots
+.playwright-mcp/
+
