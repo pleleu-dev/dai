@@ -114,10 +114,10 @@ defmodule Dai.DashboardLive do
   defp loading_skeleton(assigns) do
     ~H"""
     <div class="mb-6">
-      <div class="rounded-xl border border-base-300/50 bg-base-200/30 p-5 animate-pulse">
-        <div class="h-4 bg-base-300/60 rounded-lg w-1/3 mb-3"></div>
-        <div class="h-3 bg-base-300/40 rounded-lg w-1/2 mb-5"></div>
-        <div class="h-36 bg-base-300/30 rounded-lg"></div>
+      <div class="card card-border bg-base-100 p-5">
+        <div class="skeleton h-4 w-1/3 mb-3"></div>
+        <div class="skeleton h-3 w-1/2 mb-5"></div>
+        <div class="skeleton h-36"></div>
       </div>
     </div>
     """

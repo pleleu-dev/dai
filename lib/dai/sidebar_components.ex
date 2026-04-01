@@ -68,7 +68,7 @@ defmodule Dai.SidebarComponents do
         :for={folder <- @folders}
         phx-click="load_folder"
         phx-value-id={folder.id}
-        class="w-7 h-7 rounded-md bg-base-300/50 flex items-center justify-center text-xs font-medium text-base-content/60 hover:bg-primary/10 hover:text-primary transition-colors"
+        class="btn btn-ghost btn-xs btn-square text-base-content/60 hover:bg-primary/10 hover:text-primary"
         title={folder.name}
       >
         {String.first(folder.name)}
@@ -141,40 +141,36 @@ defmodule Dai.SidebarComponents do
               <Icons.ellipsis_vertical class="size-3.5" />
             </button>
             <%!-- Dropdown menu --%>
-            <div
+            <ul
               id={"folder-menu-#{folder.id}"}
-              class="hidden absolute right-0 top-6 z-30 w-36 bg-base-100 border border-base-300 rounded-lg shadow-lg py-1"
+              class="hidden absolute right-0 top-6 z-30 menu menu-xs bg-base-100 border border-base-300 rounded-box w-36 p-1 shadow-sm"
               phx-click-away={hide_dropdown("folder-menu-#{folder.id}")}
             >
-              <button
-                phx-click={start_rename(folder.id)}
-                class="w-full text-left px-3 py-1.5 text-xs text-base-content/70 hover:bg-base-200 flex items-center gap-2"
-              >
-                <Icons.pencil class="size-3 shrink-0" />
-                <span>Rename</span>
-              </button>
-              <button
-                phx-click={
+              <li>
+                <button phx-click={start_rename(folder.id)}>
+                  <Icons.pencil class="size-3" /> Rename
+                </button>
+              </li>
+              <li>
+                <button phx-click={
                   JS.push("load_all_folder_queries", value: %{id: folder.id})
                   |> hide_dropdown("folder-menu-#{folder.id}")
-                }
-                class="w-full text-left px-3 py-1.5 text-xs text-base-content/70 hover:bg-base-200 flex items-center gap-2"
-              >
-                <Icons.play class="size-3 shrink-0" />
-                <span>Run all queries</span>
-              </button>
-              <div class="border-t border-base-300 my-1"></div>
-              <button
-                phx-click={
-                  JS.push("delete_folder", value: %{id: folder.id})
-                  |> hide_dropdown("folder-menu-#{folder.id}")
-                }
-                class="w-full text-left px-3 py-1.5 text-xs text-error hover:bg-base-200 flex items-center gap-2"
-              >
-                <Icons.trash class="size-3 shrink-0" />
-                <span>Delete</span>
-              </button>
-            </div>
+                }>
+                  <Icons.play class="size-3" /> Run all queries
+                </button>
+              </li>
+              <li class="border-t border-base-300 mt-1 pt-1">
+                <button
+                  class="text-error"
+                  phx-click={
+                    JS.push("delete_folder", value: %{id: folder.id})
+                    |> hide_dropdown("folder-menu-#{folder.id}")
+                  }
+                >
+                  <Icons.trash class="size-3" /> Delete
+                </button>
+              </li>
+            </ul>
           </div>
         </div>
         <.folder_query_list
@@ -241,33 +237,35 @@ defmodule Dai.SidebarComponents do
       >
         <Icons.bookmark class="size-4" />
       </button>
-      <div
+      <ul
         id={@dropdown_id}
-        class="hidden absolute right-0 top-8 z-20 w-48 bg-base-100 border border-base-300 rounded-lg shadow-lg py-1"
+        class="hidden absolute right-0 top-8 z-20 menu menu-xs bg-base-100 border border-base-300 rounded-box w-48 p-1 shadow-sm"
         phx-click-away={hide_dropdown(@dropdown_id)}
       >
-        <button
-          :for={folder <- @folders}
-          phx-click={JS.push("save_query") |> hide_dropdown(@dropdown_id)}
-          phx-value-folder-id={folder.id}
-          phx-value-prompt={@prompt}
-          phx-value-title={@title}
-          class="w-full text-left px-3 py-1.5 text-xs text-base-content/70 hover:bg-base-200 flex items-center gap-2"
-        >
-          <Icons.folder class="size-3 shrink-0" />
-          <span class="truncate">{folder.name}</span>
-        </button>
-        <div :if={@folders != []} class="border-t border-base-300 my-1"></div>
-        <button
-          phx-click={JS.push("save_query_new_folder") |> hide_dropdown(@dropdown_id)}
-          phx-value-prompt={@prompt}
-          phx-value-title={@title}
-          class="w-full text-left px-3 py-1.5 text-xs text-primary hover:bg-base-200 flex items-center gap-2"
-        >
-          <Icons.plus class="size-3 shrink-0" />
-          <span>New folder...</span>
-        </button>
-      </div>
+        <li :for={folder <- @folders}>
+          <button
+            phx-click={JS.push("save_query") |> hide_dropdown(@dropdown_id)}
+            phx-value-folder-id={folder.id}
+            phx-value-prompt={@prompt}
+            phx-value-title={@title}
+          >
+            <Icons.folder class="size-3" />
+            <span class="truncate">{folder.name}</span>
+          </button>
+        </li>
+        <li :if={@folders != []} class="border-t border-base-300 mt-1 pt-1"></li>
+        <li>
+          <button
+            class="text-primary"
+            phx-click={JS.push("save_query_new_folder") |> hide_dropdown(@dropdown_id)}
+            phx-value-prompt={@prompt}
+            phx-value-title={@title}
+          >
+            <Icons.plus class="size-3" />
+            <span>New folder...</span>
+          </button>
+        </li>
+      </ul>
     </div>
     """
   end
