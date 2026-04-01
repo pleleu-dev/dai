@@ -112,8 +112,10 @@ defmodule Dai.SidebarComponents do
           <form
             id={"folder-rename-#{folder.id}"}
             class="hidden flex items-center gap-1.5 flex-1 min-w-0"
-            phx-submit="rename_folder"
-            phx-value-id={folder.id}
+            phx-submit={
+              Phoenix.LiveView.JS.push("rename_folder", value: %{id: folder.id})
+              |> cancel_rename(folder.id)
+            }
             phx-click-away={cancel_rename(folder.id)}
           >
             <Icons.folder class="size-4 shrink-0" />
@@ -287,6 +289,12 @@ defmodule Dai.SidebarComponents do
     |> Phoenix.LiveView.JS.hide(to: "#folder-row-#{folder_id}")
     |> Phoenix.LiveView.JS.show(to: "#folder-rename-#{folder_id}")
     |> Phoenix.LiveView.JS.focus(to: "#folder-rename-input-#{folder_id}")
+  end
+
+  defp cancel_rename(%Phoenix.LiveView.JS{} = js, folder_id) do
+    js
+    |> Phoenix.LiveView.JS.hide(to: "#folder-rename-#{folder_id}")
+    |> Phoenix.LiveView.JS.show(to: "#folder-row-#{folder_id}")
   end
 
   defp cancel_rename(folder_id) do
