@@ -111,28 +111,27 @@ defmodule Dai.SidebarComponents do
           <%!-- Inline rename form (hidden by default, replaces entire row) --%>
           <form
             id={"folder-rename-#{folder.id}"}
-            class="hidden flex items-center gap-1.5 flex-1 min-w-0"
+            class="hidden flex-1 min-w-0"
             phx-submit={
               Phoenix.LiveView.JS.push("rename_folder", value: %{id: folder.id})
               |> cancel_rename(folder.id)
             }
             phx-click-away={cancel_rename(folder.id)}
           >
-            <Icons.folder class="size-4 shrink-0" />
             <input
               id={"folder-rename-input-#{folder.id}"}
               type="text"
               name="name"
               value={if(folder.name == "New Folder", do: "", else: folder.name)}
               placeholder="Folder name..."
-              class="w-full text-xs bg-base-100 border border-base-300 rounded px-1.5 py-1 focus:outline-none focus:border-primary"
+              class="input input-xs w-full"
               phx-keydown={cancel_rename(folder.id)}
               phx-key="Escape"
             />
           </form>
 
-          <%!-- Action menu trigger --%>
-          <div class="relative">
+          <%!-- Action menu trigger (hidden during rename) --%>
+          <div id={"folder-actions-#{folder.id}"} class="relative">
             <button
               phx-click={toggle_dropdown("folder-menu-#{folder.id}")}
               class="opacity-0 group-hover:opacity-60 hover:!opacity-100 transition-opacity p-0.5 rounded hover:bg-base-300/50"
@@ -287,6 +286,7 @@ defmodule Dai.SidebarComponents do
   defp start_rename(folder_id) do
     Phoenix.LiveView.JS.hide(to: "#folder-menu-#{folder_id}")
     |> Phoenix.LiveView.JS.hide(to: "#folder-row-#{folder_id}")
+    |> Phoenix.LiveView.JS.hide(to: "#folder-actions-#{folder_id}")
     |> Phoenix.LiveView.JS.show(to: "#folder-rename-#{folder_id}")
     |> Phoenix.LiveView.JS.focus(to: "#folder-rename-input-#{folder_id}")
   end
@@ -295,10 +295,12 @@ defmodule Dai.SidebarComponents do
     js
     |> Phoenix.LiveView.JS.hide(to: "#folder-rename-#{folder_id}")
     |> Phoenix.LiveView.JS.show(to: "#folder-row-#{folder_id}")
+    |> Phoenix.LiveView.JS.show(to: "#folder-actions-#{folder_id}")
   end
 
   defp cancel_rename(folder_id) do
     Phoenix.LiveView.JS.hide(to: "#folder-rename-#{folder_id}")
     |> Phoenix.LiveView.JS.show(to: "#folder-row-#{folder_id}")
+    |> Phoenix.LiveView.JS.show(to: "#folder-actions-#{folder_id}")
   end
 end
