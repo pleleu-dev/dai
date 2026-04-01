@@ -7,14 +7,27 @@
 # General application configuration
 import Config
 
+# Library config — safe for both standalone and dependency modes
 config :dai,
-  ecto_repos: [Dai.Repo],
-  generators: [timestamp_type: :utc_datetime],
   repo: Dai.Repo,
   schema_contexts: [Dai.Demo.Analytics],
   standalone: true
 
-# Configures the endpoint
+# AI configuration
+config :dai, :ai,
+  model: "claude-sonnet-4-6",
+  max_tokens: 1024
+
+# Use Jason for JSON parsing in Phoenix
+config :phoenix, :json_library, Jason
+
+# Standalone config — Repo, Endpoint, asset tools
+# When used as a library dependency, the host app's config takes precedence.
+# The host should NOT set ecto_repos for :dai or configure DaiWeb.Endpoint.
+config :dai,
+  ecto_repos: [Dai.Repo],
+  generators: [timestamp_type: :utc_datetime]
+
 config :dai, DaiWeb.Endpoint,
   url: [host: "localhost"],
   adapter: Bandit.PhoenixAdapter,
@@ -25,13 +38,6 @@ config :dai, DaiWeb.Endpoint,
   pubsub_server: Dai.PubSub,
   live_view: [signing_salt: "WZzABkrL"]
 
-# Configures the mailer
-#
-# By default it uses the "Local" adapter which stores the emails
-# locally. You can see the emails in your browser, at "/dev/mailbox".
-#
-# For production it's recommended to configure a different adapter
-# at the `config/runtime.exs`.
 config :dai, Dai.Mailer, adapter: Swoosh.Adapters.Local
 
 # Configure esbuild (the version is required)
@@ -44,7 +50,6 @@ config :esbuild,
     env: %{"NODE_PATH" => [Path.expand("../deps", __DIR__), Mix.Project.build_path()]}
   ]
 
-# Configure tailwind (the version is required)
 config :tailwind,
   version: "4.1.7",
   dai: [
@@ -59,14 +64,6 @@ config :tailwind,
 config :logger, :default_formatter,
   format: "$time $metadata[$level] $message\n",
   metadata: [:request_id]
-
-# Use Jason for JSON parsing in Phoenix
-config :phoenix, :json_library, Jason
-
-# AI configuration
-config :dai, :ai,
-  model: "claude-sonnet-4-6",
-  max_tokens: 1024
 
 # Import environment specific config. This must remain at the bottom
 # of this file so it overrides the configuration defined above.

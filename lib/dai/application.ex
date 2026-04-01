@@ -5,24 +5,27 @@ defmodule Dai.Application do
 
   @impl true
   def start(_type, _args) do
-    children =
-      if standalone?() do
-        [
-          DaiWeb.Telemetry,
-          Dai.Repo,
-          {DNSCluster, query: Application.get_env(:dai, :dns_cluster_query) || :ignore},
-          {Phoenix.PubSub, name: Dai.PubSub},
-          Dai.SchemaContext,
-          DaiWeb.Endpoint
-        ]
-      else
-        # As a library: start nothing. The host app is responsible for
-        # adding Dai.SchemaContext to its own supervision tree.
-        []
-      end
+    if standalone?() do
+      children = [
+        DaiWeb.Telemetry,
+        Dai.Repo,
+        {DNSCluster, query: Application.get_env(:dai, :dns_cluster_query) || :ignore},
+        {Phoenix.PubSub, name: Dai.PubSub},
+        Dai.SchemaContext,
+        DaiWeb.Endpoint
+      ]
 
-    opts = [strategy: :one_for_one, name: Dai.Supervisor]
-    Supervisor.start_link(children, opts)
+      opts = [strategy: :one_for_one, name: Dai.Supervisor]
+      Supervisor.start_link(children, opts)
+    else
+      # Library mode: clear standalone config to prevent Dai.Repo from
+      # being auto-started by Ecto and DaiWeb.Endpoint from initializing.
+      Application.put_env(:dai, :ecto_repos, [])
+      Application.delete_env(:dai, DaiWeb.Endpoint)
+
+      opts = [strategy: :one_for_one, name: Dai.Supervisor]
+      Supervisor.start_link([], opts)
+    end
   end
 
   @impl true
