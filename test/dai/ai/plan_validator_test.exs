@@ -3,6 +3,18 @@ defmodule Dai.AI.PlanValidatorTest do
 
   alias Dai.AI.PlanValidator
 
+  defmodule TestAction do
+    @behaviour Dai.Action
+
+    def id, do: "test_action"
+    def label, do: "Test Action"
+    def description, do: "Test action"
+    def target_table, do: "users"
+    def target_key, do: "id"
+    def confirm_message(_target), do: "Run test?"
+    def execute(_target, _params), do: {:ok, :done}
+  end
+
   @valid_plan %{
     "title" => "Test",
     "description" => "Test query",
@@ -60,6 +72,71 @@ defmodule Dai.AI.PlanValidatorTest do
     test "rejects plan with missing sql key" do
       plan = Map.delete(@valid_plan, "sql")
       assert {:error, :invalid_plan} = PlanValidator.validate(plan)
+    end
+
+    test "accepts a valid action plan" do
+      Application.put_env(:dai, :actions, [TestAction])
+      on_exit(fn -> Application.delete_env(:dai, :actions) end)
+
+      plan = %{
+        "type" => "action",
+        "title" => "Approve Org",
+        "description" => "Approve the org",
+        "sql" => "SELECT id, name FROM users WHERE id = 1",
+        "action_id" => "test_action",
+        "params" => %{}
+      }
+
+      assert {:ok, ^plan} = PlanValidator.validate(plan)
+    end
+
+    test "rejects action plan with unknown action_id" do
+      Application.put_env(:dai, :actions, [])
+      on_exit(fn -> Application.delete_env(:dai, :actions) end)
+
+      plan = %{
+        "type" => "action",
+        "title" => "Bad",
+        "description" => "Bad action",
+        "sql" => "SELECT id FROM users",
+        "action_id" => "nonexistent",
+        "params" => %{}
+      }
+
+      assert {:error, :invalid_action} = PlanValidator.validate(plan)
+    end
+
+    test "rejects action plan with forbidden SQL" do
+      Application.put_env(:dai, :actions, [TestAction])
+      on_exit(fn -> Application.delete_env(:dai, :actions) end)
+
+      plan = %{
+        "type" => "action",
+        "title" => "Bad",
+        "description" => "Bad",
+        "sql" => "DELETE FROM users",
+        "action_id" => "test_action",
+        "params" => %{}
+      }
+
+      assert {:error, :forbidden_sql} = PlanValidator.validate(plan)
+    end
+
+    test "does not enforce LIMIT on action plans" do
+      Application.put_env(:dai, :actions, [TestAction])
+      on_exit(fn -> Application.delete_env(:dai, :actions) end)
+
+      plan = %{
+        "type" => "action",
+        "title" => "Approve",
+        "description" => "Approve",
+        "sql" => "SELECT id, name FROM users WHERE active = true",
+        "action_id" => "test_action",
+        "params" => %{}
+      }
+
+      assert {:ok, validated} = PlanValidator.validate(plan)
+      refute String.contains?(validated["sql"], "LIMIT")
     end
   end
 end
