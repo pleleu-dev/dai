@@ -1,8 +1,10 @@
 defmodule Dai.AI.SystemPrompt do
   @moduledoc "Builds the system prompt for the Claude API call."
 
+  alias Dai.AI.ActionRegistry
+
   def build(schema_context) do
-    """
+    base_prompt = """
     You are a SQL query generator for a PostgreSQL database. You must respond with ONLY a valid JSON object. No markdown fences, no explanation, no text before or after the JSON. Read-only SELECT queries only.
 
     ## Database Schema
@@ -54,5 +56,13 @@ defmodule Dai.AI.SystemPrompt do
     User: "show me recent failed invoices"
     {"title": "Recent Failed Invoices", "description": "Most recent invoices with failed status", "sql": "SELECT i.id, i.amount_cents / 100.0 AS amount, i.due_date, i.status, p.name AS plan_name FROM invoices i JOIN subscriptions s ON s.id = i.subscription_id JOIN plans p ON p.id = s.plan_id WHERE i.status = 'failed' ORDER BY i.due_date DESC LIMIT 500", "component": "data_table", "config": {"columns": ["id", "amount", "due_date", "status", "plan_name"]}}
     """
+
+    actions_section = ActionRegistry.prompt_section()
+
+    if actions_section == "" do
+      base_prompt
+    else
+      base_prompt <> "\n" <> actions_section
+    end
   end
 end
