@@ -23,17 +23,26 @@ defmodule Dai.Schema.Discovery do
   def format_type({:parameterized, {Ecto.Embedded, _}}), do: "embedded"
   def format_type(type), do: inspect(type)
 
-  # In standalone mode, scan :dai modules. When used as a library,
-  # also scan the host app's modules via :code.all_loaded().
   defp all_app_modules do
-    dai_modules =
-      case :application.get_key(:dai, :modules) do
-        {:ok, mods} -> mods
-        _ -> []
-      end
-
+    dai_modules = app_modules(:dai)
+    host_modules = host_app_modules()
     loaded_modules = Enum.map(:code.all_loaded(), &elem(&1, 0))
-    Enum.uniq(dai_modules ++ loaded_modules)
+    Enum.uniq(dai_modules ++ host_modules ++ loaded_modules)
+  end
+
+  defp host_app_modules do
+    case Application.get_application(Dai.Config.repo()) do
+      nil -> []
+      :dai -> []
+      host_app -> app_modules(host_app)
+    end
+  end
+
+  defp app_modules(app) do
+    case :application.get_key(app, :modules) do
+      {:ok, mods} -> mods
+      _ -> []
+    end
   end
 
   defp matches_context?(_mod, []), do: true
