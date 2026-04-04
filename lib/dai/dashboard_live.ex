@@ -2,9 +2,10 @@ defmodule Dai.DashboardLive do
   use Phoenix.LiveView
 
   alias Dai.AI.{QueryPipeline, Result}
-  alias Dai.{Folders, Icons, SchemaContext}
+  alias Dai.{Folders, Icons, SchemaContext, SchemaExplorer}
 
   import Dai.DashboardComponents
+  import Dai.SchemaExplorerComponents, only: [empty_state: 1]
   import Dai.SidebarComponents, only: [sidebar: 1]
 
   @impl true
@@ -22,7 +23,7 @@ defmodule Dai.DashboardLive do
           <div class="max-w-7xl mx-auto">
             <.query_input form={@form} loading={@loading} />
             <.loading_skeleton :if={@loading} />
-            <.results_grid streams={@streams} folders={@folders} />
+            <.results_grid streams={@streams} folders={@folders} schema_explorer={@schema_explorer} />
           </div>
         </div>
       </div>
@@ -125,6 +126,7 @@ defmodule Dai.DashboardLive do
 
   attr :streams, :any, required: true
   attr :folders, :list, default: []
+  attr :schema_explorer, :map, required: true
 
   defp results_grid(assigns) do
     ~H"""
@@ -133,17 +135,7 @@ defmodule Dai.DashboardLive do
       phx-update="stream"
       class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4"
     >
-      <div id="empty-state" class="hidden only:block col-span-full text-center py-24">
-        <div class="text-base-content/20 mb-6">
-          <Icons.chart_bar class="size-20 mx-auto" />
-        </div>
-        <h2 class="text-2xl font-semibold text-base-content/40 mb-3">
-          Ask anything about your data
-        </h2>
-        <p class="text-base-content/30 text-sm max-w-sm mx-auto leading-relaxed">
-          Type a question in plain English and get instant charts, metrics, and tables.
-        </p>
-      </div>
+      <.empty_state schema_explorer={@schema_explorer} />
       <div :for={{dom_id, result} <- @streams.results} id={dom_id}>
         <.result_card result={result} folders={@folders} />
       </div>
@@ -168,7 +160,8 @@ defmodule Dai.DashboardLive do
        sidebar_open: false,
        folders: Folders.list_folders(),
        active_folder_id: nil,
-       folder_queries: []
+       folder_queries: [],
+       schema_explorer: SchemaExplorer.get()
      )
      |> assign(:form, to_form(%{"prompt" => ""}, as: :query))
      |> stream(:results, [])}
@@ -193,6 +186,14 @@ defmodule Dai.DashboardLive do
 
   def handle_event("retry", %{"prompt" => prompt}, socket) do
     run_query(prompt, socket)
+  end
+
+  def handle_event("run_suggestion", %{"text" => text}, socket) do
+    run_query(text, socket)
+  end
+
+  def handle_event("edit_suggestion", %{"text" => text}, socket) do
+    {:noreply, assign(socket, form: to_form(%{"prompt" => text}, as: :query))}
   end
 
   # --- Sidebar events ---

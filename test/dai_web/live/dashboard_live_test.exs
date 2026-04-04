@@ -24,6 +24,41 @@ defmodule DaiWeb.DashboardLiveTest do
     end
   end
 
+  describe "empty state" do
+    test "renders stats row with table, column, and relationship counts", %{conn: conn} do
+      {:ok, view, _html} = live(conn, "/")
+
+      assert has_element?(view, "#schema-stats")
+      assert has_element?(view, "#stat-tables")
+      assert has_element?(view, "#stat-columns")
+      assert has_element?(view, "#stat-relationships")
+    end
+
+    test "renders table grid with table names and row counts", %{conn: conn} do
+      {:ok, view, _html} = live(conn, "/")
+
+      html = render(view)
+      assert html =~ "users"
+      assert html =~ "plans"
+      assert html =~ "subscriptions"
+      assert has_element?(view, "#schema-tables")
+    end
+
+    test "renders suggestion list when suggestions exist", %{conn: conn} do
+      {:ok, view, _html} = live(conn, "/")
+
+      # Suggestions require an API key, so in test they may be empty.
+      # When present, the suggestion list element is rendered.
+      explorer = Dai.SchemaExplorer.get()
+
+      if explorer.suggestions != [] do
+        assert has_element?(view, "#schema-suggestions")
+      else
+        refute has_element?(view, "#schema-suggestions")
+      end
+    end
+  end
+
   describe "sidebar" do
     test "sidebar is collapsed by default", %{conn: conn} do
       {:ok, view, _html} = live(conn, "/")
