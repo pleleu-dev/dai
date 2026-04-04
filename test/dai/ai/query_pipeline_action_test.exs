@@ -20,7 +20,9 @@ defmodule Dai.AI.QueryPipelineActionTest do
     Application.put_env(:dai, :actions, [TestAction])
 
     on_exit(fn ->
-      if prev, do: Application.put_env(:dai, :actions, prev), else: Application.delete_env(:dai, :actions)
+      if prev,
+        do: Application.put_env(:dai, :actions, prev),
+        else: Application.delete_env(:dai, :actions)
     end)
   end
 

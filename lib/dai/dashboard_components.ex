@@ -227,7 +227,10 @@ defmodule Dai.DashboardComponents do
           </tbody>
         </table>
       </div>
-      <div :for={msg <- @confirm_messages} class="flex items-center gap-2 text-sm text-base-content/80">
+      <div
+        :for={msg <- @confirm_messages}
+        class="flex items-center gap-2 text-sm text-base-content/80"
+      >
         <Icons.exclamation_triangle class="size-4 text-warning shrink-0" />
         <span>{msg}</span>
       </div>

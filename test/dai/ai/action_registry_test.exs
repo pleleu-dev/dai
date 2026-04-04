@@ -30,8 +30,11 @@ defmodule Dai.AI.ActionRegistryTest do
   setup do
     prev = Application.get_env(:dai, :actions)
     Application.put_env(:dai, :actions, [TestAction, AnotherAction])
+
     on_exit(fn ->
-      if prev, do: Application.put_env(:dai, :actions, prev), else: Application.delete_env(:dai, :actions)
+      if prev,
+        do: Application.put_env(:dai, :actions, prev),
+        else: Application.delete_env(:dai, :actions)
     end)
   end
 

@@ -64,6 +64,7 @@ defmodule Dai.AI.ActionExecutorTest do
       end
 
       targets = [%{"id" => 1, "name" => "A"}, %{"id" => 2, "name" => "B"}]
+
       assert {:partial, [%{id: 1}], [{%{"id" => 2, "name" => "B"}, "failed on 2"}]} =
                ActionExecutor.execute_all(MixedAction, targets, %{})
     end

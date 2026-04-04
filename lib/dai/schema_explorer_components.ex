@@ -187,8 +187,12 @@ defmodule Dai.SchemaExplorerComponents do
       >
         <span class="font-medium truncate">{table.name}</span>
         <span class="flex items-center gap-1.5">
-          <span class="badge badge-ghost badge-xs">{Map.get(table, :column_count, length(table.columns))} cols</span>
-          <span class="badge badge-ghost badge-xs">{Map.get(table, :association_count, length(table.associations))} rels</span>
+          <span class="badge badge-ghost badge-xs">
+            {Map.get(table, :column_count, length(table.columns))} cols
+          </span>
+          <span class="badge badge-ghost badge-xs">
+            {Map.get(table, :association_count, length(table.associations))} rels
+          </span>
           <span class="badge badge-ghost badge-xs">{format_row_count(table.row_count)} rows</span>
         </span>
       </button>

@@ -524,7 +524,8 @@ defmodule Dai.DashboardLive do
       id: Result.generate_id(),
       type: :action_result,
       title: action_module.label(),
-      description: "Completed #{length(successes)} of #{total}. #{failed} failed: #{first_reason}",
+      description:
+        "Completed #{length(successes)} of #{total}. #{failed} failed: #{first_reason}",
       error: "#{failed} of #{total} failed",
       prompt: pending.prompt,
       timestamp: DateTime.utc_now()
