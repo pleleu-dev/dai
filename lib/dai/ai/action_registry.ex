@@ -23,6 +23,14 @@ defmodule Dai.AI.ActionRegistry do
     end
   end
 
+  @spec lookup!(String.t()) :: module()
+  def lookup!(action_id) do
+    case lookup(action_id) do
+      {:ok, module} -> module
+      :error -> raise ArgumentError, "Unknown action: #{action_id}"
+    end
+  end
+
   @spec prompt_section() :: String.t()
   def prompt_section do
     actions = all()

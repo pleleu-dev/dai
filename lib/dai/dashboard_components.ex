@@ -81,6 +81,18 @@ defmodule Dai.DashboardComponents do
     """
   end
 
+  defp card_body(%{result: %{type: :action_confirmation}} = assigns) do
+    ~H"""
+    <.action_confirmation_card result={@result} />
+    """
+  end
+
+  defp card_body(%{result: %{type: :action_result}} = assigns) do
+    ~H"""
+    <.action_result_card result={@result} />
+    """
+  end
+
   # --- Card type components ---
 
   attr :result, Result, required: true
@@ -177,6 +189,85 @@ defmodule Dai.DashboardComponents do
         />
         <button type="submit" class="btn btn-sm btn-primary">Send</button>
       </form>
+    </div>
+    """
+  end
+
+  attr :result, Result, required: true
+
+  defp action_confirmation_card(assigns) do
+    action_module = Dai.AI.ActionRegistry.lookup!(assigns.result.action_id)
+    targets = assigns.result.action_targets || []
+
+    confirm_messages =
+      Enum.map(targets, fn target -> action_module.confirm_message(target) end)
+
+    columns = (assigns.result.data && assigns.result.data.columns) || []
+
+    assigns =
+      assign(assigns,
+        targets: targets,
+        columns: columns,
+        confirm_messages: confirm_messages
+      )
+
+    ~H"""
+    <div class="flex flex-col gap-3 py-2">
+      <div class="overflow-x-auto max-h-48">
+        <table class="table table-xs">
+          <thead>
+            <tr>
+              <th :for={col <- @columns} class="text-base-content/70">{col}</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr :for={row <- @targets} class="hover:bg-base-200/50">
+              <td :for={col <- @columns} class="text-sm">{format_cell(row[col])}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div :for={msg <- @confirm_messages} class="flex items-center gap-2 text-sm text-base-content/80">
+        <Icons.exclamation_triangle class="size-4 text-warning shrink-0" />
+        <span>{msg}</span>
+      </div>
+      <div class="flex gap-2 justify-end">
+        <button
+          phx-click="dismiss"
+          phx-value-id={@result.id}
+          class="btn btn-ghost btn-sm"
+        >
+          Cancel
+        </button>
+        <button
+          phx-click="confirm_action"
+          phx-value-result-id={@result.id}
+          class="btn btn-primary btn-sm"
+        >
+          Confirm
+        </button>
+      </div>
+    </div>
+    """
+  end
+
+  attr :result, Result, required: true
+
+  defp action_result_card(assigns) do
+    success = assigns.result.error == nil
+    assigns = assign(assigns, success: success)
+
+    ~H"""
+    <div class={[
+      "flex flex-col items-center gap-3 py-4",
+      @success && "text-success",
+      !@success && "text-error"
+    ]}>
+      <div class="flex items-center gap-2">
+        <Icons.check :if={@success} class="size-5" />
+        <Icons.exclamation_triangle :if={!@success} class="size-5" />
+        <span class="text-sm">{@result.description}</span>
+      </div>
     </div>
     """
   end
