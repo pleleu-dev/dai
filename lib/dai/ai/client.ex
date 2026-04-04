@@ -4,8 +4,23 @@ defmodule Dai.AI.Client do
   @api_url "https://api.anthropic.com/v1/messages"
 
   def generate_plan(prompt, schema_context) do
+    send_messages(
+      [%{role: "user", content: prompt}],
+      system: Dai.AI.SystemPrompt.build(schema_context)
+    )
+  end
+
+  @doc "Sends messages to Claude API and returns parsed JSON response."
+  def send_messages(messages, opts \\ []) do
     with {:ok, api_key} <- fetch_api_key() do
-      body = build_request_body(prompt, schema_context)
+      body =
+        %{
+          model: Dai.Config.model(),
+          max_tokens: opts[:max_tokens] || Dai.Config.max_tokens(),
+          messages: messages
+        }
+
+      body = if opts[:system], do: Map.put(body, :system, opts[:system]), else: body
       call_api(api_key, body)
     end
   end
@@ -15,15 +30,6 @@ defmodule Dai.AI.Client do
       nil -> {:error, :api_error}
       key -> {:ok, key}
     end
-  end
-
-  defp build_request_body(prompt, schema_context) do
-    %{
-      model: Dai.Config.model(),
-      max_tokens: Dai.Config.max_tokens(),
-      system: Dai.AI.SystemPrompt.build(schema_context),
-      messages: [%{role: "user", content: prompt}]
-    }
   end
 
   defp call_api(api_key, body) do
@@ -44,6 +50,7 @@ defmodule Dai.AI.Client do
   defp parse_response(%{"content" => [%{"text" => text} | _]}) do
     case Jason.decode(text) do
       {:ok, plan} when is_map(plan) -> {:ok, plan}
+      {:ok, list} when is_list(list) -> {:ok, list}
       _ -> {:error, :invalid_json}
     end
   end

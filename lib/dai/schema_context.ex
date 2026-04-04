@@ -1,6 +1,8 @@
 defmodule Dai.SchemaContext do
   @moduledoc "Discovers Ecto schemas at boot and caches a formatted context string."
 
+  alias Dai.Schema.Discovery
+
   @key :dai_schema_context
 
   def child_spec(opts) do
@@ -22,7 +24,7 @@ defmodule Dai.SchemaContext do
   end
 
   defp build_context do
-    schemas = discover_schemas()
+    schemas = Discovery.discover_schemas()
 
     if schemas == [] do
       "No schemas discovered. Check your :dai :schema_contexts configuration."
@@ -33,48 +35,12 @@ defmodule Dai.SchemaContext do
     end
   end
 
-  defp discover_schemas do
-    contexts = Dai.Config.schema_contexts()
-    extras = Dai.Config.extra_schemas()
-
-    all_app_modules()
-    |> Enum.filter(fn mod ->
-      Code.ensure_loaded?(mod) and
-        function_exported?(mod, :__schema__, 1) and
-        (matches_context?(mod, contexts) or mod in extras)
-    end)
-  end
-
-  # In standalone mode, scan :dai modules. When used as a library,
-  # also scan the host app's modules via :code.all_loaded().
-  defp all_app_modules do
-    dai_modules =
-      case :application.get_key(:dai, :modules) do
-        {:ok, mods} -> mods
-        _ -> []
-      end
-
-    loaded_modules = Enum.map(:code.all_loaded(), &elem(&1, 0))
-
-    Enum.uniq(dai_modules ++ loaded_modules)
-  end
-
-  defp matches_context?(_mod, []), do: true
-
-  defp matches_context?(mod, contexts) do
-    mod_string = Atom.to_string(mod)
-
-    Enum.any?(contexts, fn ctx ->
-      String.starts_with?(mod_string, Atom.to_string(ctx))
-    end)
-  end
-
   defp extract_schema_info(mod) do
     fields =
       mod.__schema__(:fields)
       |> Enum.map(fn field ->
         type = mod.__schema__(:type, field)
-        "#{field} (#{format_type(type)})"
+        "#{field} (#{Discovery.format_type(type)})"
       end)
       |> Enum.join(", ")
 
@@ -82,7 +48,7 @@ defmodule Dai.SchemaContext do
       mod.__schema__(:associations)
       |> Enum.map(fn assoc_name ->
         assoc = mod.__schema__(:association, assoc_name)
-        "#{assoc_type(assoc)} #{assoc_name} (#{assoc.queryable.__schema__(:source)})"
+        "#{Discovery.assoc_type(assoc)} #{assoc_name} (#{assoc.queryable.__schema__(:source)})"
       end)
 
     pk = mod.__schema__(:primary_key) |> Enum.join(", ")
@@ -96,14 +62,4 @@ defmodule Dai.SchemaContext do
 
     "Table: #{source}\n  Primary key: #{pk}\n  Columns: #{fields}#{assoc_str}"
   end
-
-  defp assoc_type(%Ecto.Association.BelongsTo{}), do: "belongs_to"
-  defp assoc_type(%Ecto.Association.Has{cardinality: :many}), do: "has_many"
-  defp assoc_type(%Ecto.Association.Has{cardinality: :one}), do: "has_one"
-  defp assoc_type(%Ecto.Association.ManyToMany{}), do: "many_to_many"
-  defp assoc_type(_), do: "unknown"
-
-  defp format_type(type) when is_atom(type), do: Atom.to_string(type)
-  defp format_type({:parameterized, {Ecto.Embedded, _}}), do: "embedded"
-  defp format_type(type), do: inspect(type)
 end

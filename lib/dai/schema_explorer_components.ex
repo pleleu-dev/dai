@@ -7,19 +7,14 @@ defmodule Dai.SchemaExplorerComponents do
   attr :schema_explorer, :map, required: true
 
   def empty_state(assigns) do
-    tables = assigns.schema_explorer.tables
-    suggestions = assigns.schema_explorer.suggestions
-
-    total_columns = tables |> Enum.flat_map(& &1.columns) |> length()
-    total_relationships = tables |> Enum.flat_map(& &1.associations) |> length()
-
     assigns =
-      assigns
-      |> assign(:tables, tables)
-      |> assign(:suggestions, suggestions)
-      |> assign(:table_count, length(tables))
-      |> assign(:column_count, total_columns)
-      |> assign(:relationship_count, total_relationships)
+      assign(assigns,
+        tables: assigns.schema_explorer.tables,
+        suggestions: assigns.schema_explorer.suggestions,
+        table_count: length(assigns.schema_explorer.tables),
+        column_count: assigns.schema_explorer.total_columns,
+        relationship_count: assigns.schema_explorer.total_relationships
+      )
 
     ~H"""
     <div id="empty-state" class="hidden only:block col-span-full">
@@ -63,7 +58,7 @@ defmodule Dai.SchemaExplorerComponents do
                   <h4 class="card-title text-sm">{table.name}</h4>
                   <div class="flex flex-wrap gap-1">
                     <span class="badge badge-ghost badge-xs">
-                      {length(table.columns)} cols
+                      {table.column_count} cols
                     </span>
                     <span class="badge badge-ghost badge-xs">
                       {format_row_count(table.row_count)} rows
@@ -157,16 +152,14 @@ defmodule Dai.SchemaExplorerComponents do
           <Icons.x_mark class="size-4" />
         </button>
       </div>
-      <%= if @explorer_focus == [] do %>
-        <.panel_table_list schema_explorer={@schema_explorer} />
-      <% else %>
-        <.panel_table_detail
-          schema_explorer={@schema_explorer}
-          explorer_focus={@explorer_focus}
-          explorer_suggestions={@explorer_suggestions}
-          explorer_loading={@explorer_loading}
-        />
-      <% end %>
+      <.panel_table_list :if={@explorer_focus == []} schema_explorer={@schema_explorer} />
+      <.panel_table_detail
+        :if={@explorer_focus != []}
+        schema_explorer={@schema_explorer}
+        explorer_focus={@explorer_focus}
+        explorer_suggestions={@explorer_suggestions}
+        explorer_loading={@explorer_loading}
+      />
     </div>
     """
   end
@@ -174,8 +167,7 @@ defmodule Dai.SchemaExplorerComponents do
   attr :schema_explorer, :map, required: true
 
   defp panel_table_list(assigns) do
-    tables = assigns.schema_explorer.tables
-    assigns = assign(assigns, :tables, tables)
+    assigns = assign(assigns, :tables, assigns.schema_explorer.tables)
 
     ~H"""
     <div class="flex flex-col gap-1">
@@ -187,8 +179,8 @@ defmodule Dai.SchemaExplorerComponents do
       >
         <span class="font-medium truncate">{table.name}</span>
         <span class="flex items-center gap-1.5">
-          <span class="badge badge-ghost badge-xs">{length(table.columns)} cols</span>
-          <span class="badge badge-ghost badge-xs">{length(table.associations)} rels</span>
+          <span class="badge badge-ghost badge-xs">{table.column_count} cols</span>
+          <span class="badge badge-ghost badge-xs">{table.association_count} rels</span>
           <span class="badge badge-ghost badge-xs">{format_row_count(table.row_count)} rows</span>
         </span>
       </button>
@@ -203,20 +195,22 @@ defmodule Dai.SchemaExplorerComponents do
 
   defp panel_table_detail(assigns) do
     all_tables = assigns.schema_explorer.tables
-    focused_tables = Enum.filter(all_tables, &(&1.name in assigns.explorer_focus))
+    focus_set = MapSet.new(assigns.explorer_focus)
+    focused_tables = Enum.filter(all_tables, &(&1.name in focus_set))
 
     related_names =
       focused_tables
       |> Enum.flat_map(fn t -> Enum.map(t.associations, & &1.target) end)
-      |> Enum.uniq()
-      |> Enum.reject(&(&1 in assigns.explorer_focus))
+      |> MapSet.new()
+      |> MapSet.difference(focus_set)
 
     related_tables = Enum.filter(all_tables, &(&1.name in related_names))
 
     assigns =
-      assigns
-      |> assign(:focused_tables, focused_tables)
-      |> assign(:related_tables, related_tables)
+      assign(assigns,
+        focused_tables: focused_tables,
+        related_tables: related_tables
+      )
 
     ~H"""
     <div>
