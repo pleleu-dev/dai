@@ -55,6 +55,38 @@ defmodule Dai.SchemaExplorerTest do
     end
   end
 
+  describe "suggest/1" do
+    test "returns a list for given table names" do
+      result = SchemaExplorer.suggest(["users", "subscriptions"])
+      assert is_list(result)
+    end
+
+    test "returns empty list for empty table selection" do
+      assert SchemaExplorer.suggest([]) == []
+    end
+
+    test "caches results for same table combination" do
+      result1 = SchemaExplorer.suggest(["users"])
+      result2 = SchemaExplorer.suggest(["users"])
+      assert result1 == result2
+    end
+
+    test "same tables in different order hit same cache" do
+      result1 = SchemaExplorer.suggest(["users", "plans"])
+      result2 = SchemaExplorer.suggest(["plans", "users"])
+      assert result1 == result2
+    end
+  end
+
+  describe "reload/0" do
+    test "clears on-demand suggestion cache" do
+      SchemaExplorer.suggest(["users"])
+      assert :ets.info(:dai_explorer_cache, :size) > 0
+      SchemaExplorer.reload()
+      assert :ets.info(:dai_explorer_cache, :size) == 0
+    end
+  end
+
   describe "boot suggestions structure" do
     test "each suggestion has text and tables keys when present" do
       %{suggestions: suggestions} = SchemaExplorer.get()

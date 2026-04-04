@@ -8,6 +8,10 @@ defmodule Dai.SchemaExplorer do
   end
 
   def start_link(_opts) do
+    if :ets.whereis(:dai_explorer_cache) == :undefined do
+      :ets.new(:dai_explorer_cache, [:set, :public, :named_table])
+    end
+
     data = build_explorer_data()
     :persistent_term.put(@key, data)
     :ignore
@@ -20,8 +24,77 @@ defmodule Dai.SchemaExplorer do
 
   @doc "Rebuilds and recaches schema explorer data."
   def reload do
+    if :ets.whereis(:dai_explorer_cache) != :undefined do
+      :ets.delete_all_objects(:dai_explorer_cache)
+    end
+
     :persistent_term.put(@key, build_explorer_data())
     :ok
+  end
+
+  @doc "Returns AI-generated suggestions for the given table combination. Results are cached."
+  def suggest([]), do: []
+
+  def suggest(table_names) do
+    cache_key = table_names |> Enum.sort() |> Enum.join(",")
+
+    case ets_lookup(cache_key) do
+      {:ok, suggestions} ->
+        suggestions
+
+      :miss ->
+        suggestions = generate_on_demand_suggestions(table_names)
+        ets_put(cache_key, suggestions)
+        suggestions
+    end
+  end
+
+  defp ets_lookup(key) do
+    case :ets.lookup(:dai_explorer_cache, key) do
+      [{^key, suggestions}] -> {:ok, suggestions}
+      [] -> :miss
+    end
+  rescue
+    ArgumentError -> :miss
+  end
+
+  defp ets_put(key, value) do
+    :ets.insert(:dai_explorer_cache, {key, value})
+  rescue
+    ArgumentError -> :ok
+  end
+
+  defp generate_on_demand_suggestions(table_names) do
+    %{tables: all_tables} = get()
+
+    selected_schemas =
+      all_tables
+      |> Enum.filter(&(&1.name in table_names))
+      |> Enum.map_join("\n\n", &format_table_for_prompt/1)
+
+    prompt = """
+    Given these database tables:
+
+    #{selected_schemas}
+
+    Generate 3-5 example questions a non-technical user would ask about this data.
+    Focus on queries that combine these tables.
+    Return ONLY a valid JSON array, no other text:
+    [{"text": "human-readable question", "tables": ["table1", "table2"]}]
+    """
+
+    case call_suggestion_api(prompt) do
+      {:ok, suggestions} -> suggestions
+      {:error, _} -> []
+    end
+  end
+
+  defp format_table_for_prompt(table) do
+    cols = Enum.map_join(table.columns, ", ", &"#{&1.name} (#{&1.type})")
+    assocs = Enum.map_join(table.associations, ", ", &"#{&1.type} #{&1.name} (#{&1.target})")
+
+    assoc_line = if assocs != "", do: "\n  Associations: #{assocs}", else: ""
+    "Table: #{table.name}\n  Columns: #{cols}#{assoc_line}"
   end
 
   defp build_explorer_data do
