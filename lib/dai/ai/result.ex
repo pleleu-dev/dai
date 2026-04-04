@@ -10,7 +10,9 @@ defmodule Dai.AI.Result do
             | :pie_chart
             | :data_table
             | :clarification
-            | :error,
+            | :error
+            | :action_confirmation
+            | :action_result,
           title: String.t() | nil,
           description: String.t() | nil,
           config: map() | nil,
@@ -18,6 +20,9 @@ defmodule Dai.AI.Result do
           prompt: String.t(),
           error: String.t() | nil,
           question: String.t() | nil,
+          action_id: String.t() | nil,
+          action_targets: [map()] | nil,
+          action_params: map() | nil,
           timestamp: DateTime.t()
         }
 
@@ -32,6 +37,9 @@ defmodule Dai.AI.Result do
     :prompt,
     :error,
     :question,
+    :action_id,
+    :action_targets,
+    :action_params,
     :timestamp
   ]
 
@@ -62,6 +70,7 @@ defmodule Dai.AI.Result do
     do: "The generated query contained forbidden operations and was blocked."
 
   defp error_message(:invalid_component), do: "The AI suggested an unknown visualization type."
+  defp error_message(:invalid_action), do: "The AI suggested an unknown action."
   defp error_message({:query_failed, detail}), do: "The database query failed: #{detail}"
   defp error_message(reason) when is_binary(reason), do: reason
   defp error_message(reason), do: "An unexpected error occurred: #{inspect(reason)}"
