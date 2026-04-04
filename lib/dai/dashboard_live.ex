@@ -1,7 +1,7 @@
 defmodule Dai.DashboardLive do
   use Phoenix.LiveView
 
-  alias Dai.AI.{QueryPipeline, Result}
+  alias Dai.AI.{ActionExecutor, ActionRegistry, QueryPipeline, Result}
   alias Dai.{Folders, Icons, SchemaContext, SchemaExplorer}
 
   import Dai.DashboardComponents
@@ -172,6 +172,7 @@ defmodule Dai.DashboardLive do
        current_prompt: nil,
        task_ref: nil,
        pending_tasks: %{},
+       pending_actions: %{},
        dai_host_layout: host_layout,
        sidebar_open: false,
        folders: Folders.list_folders(),
@@ -207,6 +208,31 @@ defmodule Dai.DashboardLive do
 
   def handle_event("retry", %{"prompt" => prompt}, socket) do
     run_query(prompt, socket)
+  end
+
+  def handle_event("confirm_action", %{"result-id" => result_id}, socket) do
+    case Map.pop(socket.assigns.pending_actions, result_id) do
+      {nil, _} ->
+        {:noreply, socket}
+
+      {pending_result, remaining} ->
+        {:ok, action_module} = ActionRegistry.lookup(pending_result.action_id)
+
+        outcome =
+          ActionExecutor.execute_all(
+            action_module,
+            pending_result.action_targets,
+            pending_result.action_params
+          )
+
+        result_card = build_action_result(outcome, pending_result, action_module)
+
+        {:noreply,
+         socket
+         |> stream_delete_by_dom_id(:results, "results-#{result_id}")
+         |> stream_insert(:results, result_card, at: 0)
+         |> assign(pending_actions: remaining)}
+    end
   end
 
   def handle_event("run_suggestion", %{"text" => text}, socket) do
@@ -404,11 +430,15 @@ defmodule Dai.DashboardLive do
   # Single query result (from run_query)
   def handle_info({ref, result}, socket) when socket.assigns.task_ref == ref do
     Process.demonitor(ref, [:flush])
+    card = result_to_card(result, socket.assigns.current_prompt)
 
-    {:noreply,
-     socket
-     |> stream_insert(:results, result_to_card(result, socket.assigns.current_prompt), at: 0)
-     |> assign(loading: false, task_ref: nil)}
+    socket =
+      socket
+      |> stream_insert(:results, card, at: 0)
+      |> assign(loading: false, task_ref: nil)
+      |> maybe_store_pending_action(card)
+
+    {:noreply, socket}
   end
 
   # Batch query result (from load_all_folder_queries)
@@ -462,6 +492,56 @@ defmodule Dai.DashboardLive do
 
   defp result_to_card({:ok, result}, _prompt), do: result
   defp result_to_card({:error, reason}, prompt), do: Result.error(reason, prompt)
+
+  defp maybe_store_pending_action(socket, %Result{type: :action_confirmation} = result) do
+    assign(socket,
+      pending_actions: Map.put(socket.assigns.pending_actions, result.id, result)
+    )
+  end
+
+  defp maybe_store_pending_action(socket, _result), do: socket
+
+  defp build_action_result({:ok, successes}, pending, action_module) do
+    count = length(successes)
+
+    %Result{
+      id: Result.generate_id(),
+      type: :action_result,
+      title: action_module.label(),
+      description:
+        "Successfully completed #{action_module.label()} on #{count} #{if count == 1, do: "target", else: "targets"}.",
+      prompt: pending.prompt,
+      timestamp: DateTime.utc_now()
+    }
+  end
+
+  defp build_action_result({:partial, successes, failures}, pending, action_module) do
+    total = length(successes) + length(failures)
+    failed = length(failures)
+    {_target, first_reason} = hd(failures)
+
+    %Result{
+      id: Result.generate_id(),
+      type: :action_result,
+      title: action_module.label(),
+      description: "Completed #{length(successes)} of #{total}. #{failed} failed: #{first_reason}",
+      error: "#{failed} of #{total} failed",
+      prompt: pending.prompt,
+      timestamp: DateTime.utc_now()
+    }
+  end
+
+  defp build_action_result({:error, reason}, pending, action_module) do
+    %Result{
+      id: Result.generate_id(),
+      type: :action_result,
+      title: action_module.label(),
+      description: "Failed: #{reason}",
+      error: to_string(reason),
+      prompt: pending.prompt,
+      timestamp: DateTime.utc_now()
+    }
+  end
 
   defp reload_folders(socket), do: assign(socket, folders: Folders.list_folders())
 
