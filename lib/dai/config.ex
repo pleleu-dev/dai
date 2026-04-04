@@ -42,4 +42,9 @@ defmodule Dai.Config do
   def max_tokens do
     Keyword.get(ai_config(), :max_tokens, 1024)
   end
+
+  @spec actions() :: [module()]
+  def actions do
+    Application.get_env(:dai, :actions, [])
+  end
 end
