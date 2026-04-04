@@ -33,29 +33,30 @@ defmodule Dai.AI.ActionRegistry do
 
   @spec prompt_section() :: String.t()
   def prompt_section do
-    actions = all()
-
-    if actions == [] do
-      ""
-    else
-      action_lines =
-        Enum.map_join(actions, "\n", fn a ->
-          "- #{a.id}: #{a.label}. #{a.description}. Target: #{a.target_table} (key: #{a.target_key})"
-        end)
-
-      """
-      ## Available Actions
-
-      When the user asks you to perform an action (not just view data), return an action plan instead of a query plan.
-
-      Actions:
-      #{action_lines}
-
-      Action response format:
-      {"type": "action", "title": "...", "description": "...", "sql": "SELECT ... FROM {target_table} WHERE ...", "action_id": "{id}", "params": {}}
-
-      The SQL must be a SELECT that finds the target row(s). Include enough columns for the user to verify the targets.
-      """
+    case Dai.Config.actions() do
+      [] -> ""
+      modules -> build_prompt_section(modules)
     end
+  end
+
+  defp build_prompt_section(modules) do
+    action_lines =
+      Enum.map_join(modules, "\n", fn mod ->
+        "- #{mod.id()}: #{mod.label()}. #{mod.description()}. Target: #{mod.target_table()} (key: #{mod.target_key()})"
+      end)
+
+    """
+    ## Available Actions
+
+    When the user asks you to perform an action (not just view data), return an action plan instead of a query plan.
+
+    Actions:
+    #{action_lines}
+
+    Action response format:
+    {"type": "action", "title": "...", "description": "...", "sql": "SELECT ... FROM {target_table} WHERE ...", "action_id": "{id}", "params": {}}
+
+    The SQL must be a SELECT that finds the target row(s). Include enough columns for the user to verify the targets.
+    """
   end
 end

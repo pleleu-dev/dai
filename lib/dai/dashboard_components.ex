@@ -196,13 +196,19 @@ defmodule Dai.DashboardComponents do
   attr :result, Result, required: true
 
   defp action_confirmation_card(assigns) do
-    action_module = Dai.AI.ActionRegistry.lookup!(assigns.result.action_id)
     targets = assigns.result.action_targets || []
 
     confirm_messages =
-      Enum.map(targets, fn target -> action_module.confirm_message(target) end)
+      case Dai.AI.ActionRegistry.lookup(assigns.result.action_id) do
+        {:ok, action_module} -> Enum.map(targets, &action_module.confirm_message/1)
+        :error -> Enum.map(targets, fn _ -> "Confirm action on this target?" end)
+      end
 
-    columns = (assigns.result.data && assigns.result.data.columns) || []
+    columns =
+      case assigns.result.data do
+        %{columns: columns} -> columns
+        _ -> []
+      end
 
     assigns =
       assign(assigns,

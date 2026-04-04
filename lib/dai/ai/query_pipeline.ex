@@ -1,7 +1,7 @@
 defmodule Dai.AI.QueryPipeline do
   @moduledoc "Orchestrates the full NL-to-result pipeline."
 
-  alias Dai.AI.{Client, PlanValidator, Result, SqlExecutor, ResultAssembler}
+  alias Dai.AI.{Client, PlanValidator, SqlExecutor, ResultAssembler}
 
   def run(prompt, schema_context) do
     with {:ok, plan} <- Client.generate_plan(prompt, schema_context) do
@@ -16,19 +16,7 @@ defmodule Dai.AI.QueryPipeline do
   def run_from_plan(%{"type" => "action"} = plan, prompt) do
     with {:ok, validated} <- PlanValidator.validate(plan),
          {:ok, query_result} <- SqlExecutor.execute(validated) do
-      {:ok,
-       %Result{
-         id: Result.generate_id(),
-         type: :action_confirmation,
-         title: validated["title"],
-         description: validated["description"],
-         action_id: validated["action_id"],
-         action_targets: query_result.rows,
-         action_params: validated["params"] || %{},
-         data: query_result,
-         prompt: prompt,
-         timestamp: DateTime.utc_now()
-       }}
+      ResultAssembler.assemble_action_confirmation(validated, query_result, prompt)
     end
   end
 

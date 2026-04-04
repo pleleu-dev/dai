@@ -1,7 +1,7 @@
 defmodule Dai.DashboardLive do
   use Phoenix.LiveView
 
-  alias Dai.AI.{ActionExecutor, ActionRegistry, QueryPipeline, Result}
+  alias Dai.AI.{ActionExecutor, ActionRegistry, QueryPipeline, Result, ResultAssembler}
   alias Dai.{Folders, Icons, SchemaContext, SchemaExplorer}
 
   import Dai.DashboardComponents
@@ -216,32 +216,13 @@ defmodule Dai.DashboardLive do
         {:noreply, socket}
 
       {pending_result, remaining} ->
-        case ActionRegistry.lookup(pending_result.action_id) do
-          {:ok, action_module} ->
-            outcome =
-              ActionExecutor.execute_all(
-                action_module,
-                pending_result.action_targets,
-                pending_result.action_params
-              )
+        result_card = execute_pending_action(pending_result)
 
-            result_card = build_action_result(outcome, pending_result, action_module)
-
-            {:noreply,
-             socket
-             |> stream_delete_by_dom_id(:results, "results-#{result_id}")
-             |> stream_insert(:results, result_card, at: 0)
-             |> assign(pending_actions: remaining)}
-
-          :error ->
-            error_card = Result.error(:invalid_action, pending_result.prompt)
-
-            {:noreply,
-             socket
-             |> stream_delete_by_dom_id(:results, "results-#{result_id}")
-             |> stream_insert(:results, error_card, at: 0)
-             |> assign(pending_actions: remaining)}
-        end
+        {:noreply,
+         socket
+         |> stream_delete_by_dom_id(:results, "results-#{result_id}")
+         |> stream_insert(:results, result_card, at: 0)
+         |> assign(pending_actions: remaining)}
     end
   end
 
@@ -511,47 +492,21 @@ defmodule Dai.DashboardLive do
 
   defp maybe_store_pending_action(socket, _result), do: socket
 
-  defp build_action_result({:ok, successes}, pending, action_module) do
-    count = length(successes)
+  defp execute_pending_action(pending_result) do
+    case ActionRegistry.lookup(pending_result.action_id) do
+      {:ok, action_module} ->
+        outcome =
+          ActionExecutor.execute_all(
+            action_module,
+            pending_result.action_targets,
+            pending_result.action_params
+          )
 
-    %Result{
-      id: Result.generate_id(),
-      type: :action_result,
-      title: action_module.label(),
-      description:
-        "Successfully completed #{action_module.label()} on #{count} #{if count == 1, do: "target", else: "targets"}.",
-      prompt: pending.prompt,
-      timestamp: DateTime.utc_now()
-    }
-  end
+        ResultAssembler.assemble_action_result(outcome, pending_result.prompt, action_module)
 
-  defp build_action_result({:partial, successes, failures}, pending, action_module) do
-    total = length(successes) + length(failures)
-    failed = length(failures)
-    {_target, first_reason} = hd(failures)
-
-    %Result{
-      id: Result.generate_id(),
-      type: :action_result,
-      title: action_module.label(),
-      description:
-        "Completed #{length(successes)} of #{total}. #{failed} failed: #{first_reason}",
-      error: "#{failed} of #{total} failed",
-      prompt: pending.prompt,
-      timestamp: DateTime.utc_now()
-    }
-  end
-
-  defp build_action_result({:error, reason}, pending, action_module) do
-    %Result{
-      id: Result.generate_id(),
-      type: :action_result,
-      title: action_module.label(),
-      description: "Failed: #{reason}",
-      error: to_string(reason),
-      prompt: pending.prompt,
-      timestamp: DateTime.utc_now()
-    }
+      :error ->
+        Result.error(:invalid_action, pending_result.prompt)
+    end
   end
 
   defp reload_folders(socket), do: assign(socket, folders: Folders.list_folders())

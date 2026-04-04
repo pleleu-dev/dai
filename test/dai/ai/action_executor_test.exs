@@ -33,6 +33,20 @@ defmodule Dai.AI.ActionExecutorTest do
     end
   end
 
+  defmodule MixedAction do
+    @behaviour Dai.Action
+
+    def id, do: "mixed"
+    def label, do: "Mixed"
+    def description, do: "Fails on id 2"
+    def target_table, do: "users"
+    def target_key, do: "id"
+    def confirm_message(_target), do: "Act?"
+
+    def execute(%{"id" => 2}, _params), do: {:error, "failed on 2"}
+    def execute(target, _params), do: {:ok, %{id: target["id"]}}
+  end
+
   describe "execute_all/3" do
     test "executes action on each target and returns all successes" do
       targets = [%{"id" => 1, "name" => "A"}, %{"id" => 2, "name" => "B"}]
@@ -49,20 +63,6 @@ defmodule Dai.AI.ActionExecutorTest do
     end
 
     test "returns partial result when some targets fail" do
-      defmodule MixedAction do
-        @behaviour Dai.Action
-
-        def id, do: "mixed"
-        def label, do: "Mixed"
-        def description, do: "Fails on id 2"
-        def target_table, do: "users"
-        def target_key, do: "id"
-        def confirm_message(_target), do: "Act?"
-
-        def execute(%{"id" => 2}, _params), do: {:error, "failed on 2"}
-        def execute(target, _params), do: {:ok, %{id: target["id"]}}
-      end
-
       targets = [%{"id" => 1, "name" => "A"}, %{"id" => 2, "name" => "B"}]
 
       assert {:partial, [%{id: 1}], [{%{"id" => 2, "name" => "B"}, "failed on 2"}]} =
