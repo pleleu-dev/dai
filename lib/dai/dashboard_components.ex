@@ -26,7 +26,7 @@ defmodule Dai.DashboardComponents do
           </div>
           <div class="flex items-center gap-0.5 shrink-0">
             <Dai.SidebarComponents.save_button
-              :if={@result.type not in [:error, :clarification]}
+              :if={@result.type not in [:error, :clarification, :action_confirmation, :action_result]}
               result_id={@result.id}
               prompt={@result.prompt}
               title={@result.title}
