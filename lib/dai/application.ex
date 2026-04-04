@@ -12,6 +12,7 @@ defmodule Dai.Application do
         {DNSCluster, query: Application.get_env(:dai, :dns_cluster_query) || :ignore},
         {Phoenix.PubSub, name: Dai.PubSub},
         Dai.SchemaContext,
+        Dai.SchemaExplorer,
         DaiWeb.Endpoint
       ]
 
