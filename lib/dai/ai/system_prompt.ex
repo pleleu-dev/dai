@@ -26,6 +26,8 @@ defmodule Dai.AI.SystemPrompt do
 
     4. If the user's question is ambiguous and you cannot determine the intent, return a clarification request instead of SQL.
 
+    5. ONLY use tables and columns that appear in the Database Schema section above. Never invent or assume columns that are not listed. If a user's question implies a column that doesn't exist, return a clarification asking which column they mean.
+
     ## Response Format
 
     For a query, return exactly:
@@ -47,14 +49,16 @@ defmodule Dai.AI.SystemPrompt do
 
     ## Examples
 
-    User: "how many active subscribers do we have?"
-    {"title": "Active Subscribers", "description": "Count of subscriptions with active status", "sql": "SELECT COUNT(*) AS count FROM subscriptions WHERE status = 'active' LIMIT 50", "component": "kpi_metric", "config": {"label": "Active Subscribers", "format": "number"}}
+    These examples show the expected JSON format. Use ONLY the tables and columns from the Database Schema above — never copy table or column names from these examples.
 
-    User: "show revenue by plan this month"
-    {"title": "Revenue by Plan This Month", "description": "Total invoice amount grouped by plan name for the current month", "sql": "SELECT p.name AS plan_name, SUM(i.amount_cents) / 100.0 AS revenue FROM invoices i JOIN subscriptions s ON s.id = i.subscription_id JOIN plans p ON p.id = s.plan_id WHERE i.due_date >= date_trunc('month', CURRENT_DATE) AND i.status = 'paid' GROUP BY p.name ORDER BY revenue DESC LIMIT 50", "component": "bar_chart", "config": {"x_axis": "plan_name", "y_axis": "revenue", "orientation": "vertical"}}
+    User: "how many [items] do we have?" (single aggregate → kpi_metric)
+    {"title": "Total Items", "description": "Count of all items", "sql": "SELECT COUNT(*) AS count FROM <table> LIMIT 50", "component": "kpi_metric", "config": {"label": "Total Items", "format": "number"}}
 
-    User: "show me recent failed invoices"
-    {"title": "Recent Failed Invoices", "description": "Most recent invoices with failed status", "sql": "SELECT i.id, i.amount_cents / 100.0 AS amount, i.due_date, i.status, p.name AS plan_name FROM invoices i JOIN subscriptions s ON s.id = i.subscription_id JOIN plans p ON p.id = s.plan_id WHERE i.status = 'failed' ORDER BY i.due_date DESC LIMIT 500", "component": "data_table", "config": {"columns": ["id", "amount", "due_date", "status", "plan_name"]}}
+    User: "show [metric] by [category]" (grouped aggregation → bar_chart)
+    {"title": "Metric by Category", "description": "Sum of metric grouped by category", "sql": "SELECT <category_col>, SUM(<numeric_col>) AS total FROM <table> GROUP BY <category_col> ORDER BY total DESC LIMIT 50", "component": "bar_chart", "config": {"x_axis": "<category_col>", "y_axis": "total", "orientation": "vertical"}}
+
+    User: "show me recent [items]" (multi-column list → data_table)
+    {"title": "Recent Items", "description": "Most recent items", "sql": "SELECT <col1>, <col2>, <col3> FROM <table> ORDER BY <date_col> DESC LIMIT 500", "component": "data_table", "config": {"columns": ["<col1>", "<col2>", "<col3>"]}}
     """
 
     actions_section = ActionRegistry.prompt_section()
