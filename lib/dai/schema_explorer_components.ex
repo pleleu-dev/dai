@@ -7,13 +7,21 @@ defmodule Dai.SchemaExplorerComponents do
   attr :schema_explorer, :map, required: true
 
   def empty_state(assigns) do
+    tables = assigns.schema_explorer.tables
+
     assigns =
       assign(assigns,
-        tables: assigns.schema_explorer.tables,
+        tables: tables,
         suggestions: assigns.schema_explorer.suggestions,
-        table_count: length(assigns.schema_explorer.tables),
-        column_count: assigns.schema_explorer.total_columns,
-        relationship_count: assigns.schema_explorer.total_relationships
+        table_count: length(tables),
+        column_count:
+          Map.get_lazy(assigns.schema_explorer, :total_columns, fn ->
+            tables |> Enum.flat_map(& &1.columns) |> length()
+          end),
+        relationship_count:
+          Map.get_lazy(assigns.schema_explorer, :total_relationships, fn ->
+            tables |> Enum.flat_map(& &1.associations) |> length()
+          end)
       )
 
     ~H"""
@@ -58,7 +66,7 @@ defmodule Dai.SchemaExplorerComponents do
                   <h4 class="card-title text-sm">{table.name}</h4>
                   <div class="flex flex-wrap gap-1">
                     <span class="badge badge-ghost badge-xs">
-                      {table.column_count} cols
+                      {Map.get(table, :column_count, length(table.columns))} cols
                     </span>
                     <span class="badge badge-ghost badge-xs">
                       {format_row_count(table.row_count)} rows
@@ -179,8 +187,8 @@ defmodule Dai.SchemaExplorerComponents do
       >
         <span class="font-medium truncate">{table.name}</span>
         <span class="flex items-center gap-1.5">
-          <span class="badge badge-ghost badge-xs">{table.column_count} cols</span>
-          <span class="badge badge-ghost badge-xs">{table.association_count} rels</span>
+          <span class="badge badge-ghost badge-xs">{Map.get(table, :column_count, length(table.columns))} cols</span>
+          <span class="badge badge-ghost badge-xs">{Map.get(table, :association_count, length(table.associations))} rels</span>
           <span class="badge badge-ghost badge-xs">{format_row_count(table.row_count)} rows</span>
         </span>
       </button>
