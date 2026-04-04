@@ -142,31 +142,31 @@ defmodule Dai.SchemaExplorerComponents do
 
   def schema_panel(assigns) do
     ~H"""
-    <div :if={@schema_panel_open} class="drawer drawer-end drawer-open">
-      <input type="checkbox" class="drawer-toggle" checked />
-      <div class="drawer-side z-20">
-        <label
+    <div
+      :if={@schema_panel_open}
+      id="schema-panel-content"
+      class="fixed top-0 right-0 h-full w-80 z-40 bg-base-100 border-l border-base-300 shadow-xl overflow-y-auto p-4"
+    >
+      <div class="flex items-center justify-between mb-4">
+        <h2 class="text-base font-bold">Schema Explorer</h2>
+        <button
           phx-click="toggle_schema_panel"
-          class="drawer-overlay"
+          class="btn btn-ghost btn-sm btn-circle"
           aria-label="Close schema panel"
         >
-        </label>
-        <div
-          id="schema-panel-content"
-          class="bg-base-100 border-l border-base-300 w-80 min-h-full p-4 overflow-y-auto"
-        >
-          <%= if @explorer_focus == [] do %>
-            <.panel_table_list schema_explorer={@schema_explorer} />
-          <% else %>
-            <.panel_table_detail
-              schema_explorer={@schema_explorer}
-              explorer_focus={@explorer_focus}
-              explorer_suggestions={@explorer_suggestions}
-              explorer_loading={@explorer_loading}
-            />
-          <% end %>
-        </div>
+          <Icons.x_mark class="size-4" />
+        </button>
       </div>
+      <%= if @explorer_focus == [] do %>
+        <.panel_table_list schema_explorer={@schema_explorer} />
+      <% else %>
+        <.panel_table_detail
+          schema_explorer={@schema_explorer}
+          explorer_focus={@explorer_focus}
+          explorer_suggestions={@explorer_suggestions}
+          explorer_loading={@explorer_loading}
+        />
+      <% end %>
     </div>
     """
   end
@@ -178,16 +178,6 @@ defmodule Dai.SchemaExplorerComponents do
     assigns = assign(assigns, :tables, tables)
 
     ~H"""
-    <div class="flex items-center justify-between mb-4">
-      <h3 class="font-semibold text-base">Schema Explorer</h3>
-      <button
-        phx-click="toggle_schema_panel"
-        class="btn btn-ghost btn-sm btn-circle"
-        aria-label="Close"
-      >
-        <Icons.x_mark class="size-4" />
-      </button>
-    </div>
     <div class="flex flex-col gap-1">
       <button
         :for={table <- @tables}
