@@ -1,5 +1,5 @@
 defmodule Dai.AI.ActionRegistryTest do
-  use ExUnit.Case, async: true
+  use ExUnit.Case, async: false
 
   alias Dai.AI.ActionRegistry
 
@@ -58,6 +58,18 @@ defmodule Dai.AI.ActionRegistryTest do
 
     test "returns :error for unknown id" do
       assert :error = ActionRegistry.lookup("nonexistent")
+    end
+  end
+
+  describe "lookup!/1" do
+    test "returns module for known id" do
+      assert TestAction == ActionRegistry.lookup!("test_action")
+    end
+
+    test "raises for unknown id" do
+      assert_raise ArgumentError, ~r/Unknown action/, fn ->
+        ActionRegistry.lookup!("nonexistent")
+      end
     end
   end
 

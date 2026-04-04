@@ -1,5 +1,5 @@
 defmodule Dai.AI.PlanValidatorTest do
-  use ExUnit.Case, async: true
+  use ExUnit.Case, async: false
 
   alias Dai.AI.PlanValidator
 

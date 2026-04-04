@@ -216,22 +216,32 @@ defmodule Dai.DashboardLive do
         {:noreply, socket}
 
       {pending_result, remaining} ->
-        {:ok, action_module} = ActionRegistry.lookup(pending_result.action_id)
+        case ActionRegistry.lookup(pending_result.action_id) do
+          {:ok, action_module} ->
+            outcome =
+              ActionExecutor.execute_all(
+                action_module,
+                pending_result.action_targets,
+                pending_result.action_params
+              )
 
-        outcome =
-          ActionExecutor.execute_all(
-            action_module,
-            pending_result.action_targets,
-            pending_result.action_params
-          )
+            result_card = build_action_result(outcome, pending_result, action_module)
 
-        result_card = build_action_result(outcome, pending_result, action_module)
+            {:noreply,
+             socket
+             |> stream_delete_by_dom_id(:results, "results-#{result_id}")
+             |> stream_insert(:results, result_card, at: 0)
+             |> assign(pending_actions: remaining)}
 
-        {:noreply,
-         socket
-         |> stream_delete_by_dom_id(:results, "results-#{result_id}")
-         |> stream_insert(:results, result_card, at: 0)
-         |> assign(pending_actions: remaining)}
+          :error ->
+            error_card = Result.error(:invalid_action, pending_result.prompt)
+
+            {:noreply,
+             socket
+             |> stream_delete_by_dom_id(:results, "results-#{result_id}")
+             |> stream_insert(:results, error_card, at: 0)
+             |> assign(pending_actions: remaining)}
+        end
     end
   end
 
