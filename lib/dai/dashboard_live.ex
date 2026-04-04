@@ -5,7 +5,7 @@ defmodule Dai.DashboardLive do
   alias Dai.{Folders, Icons, SchemaContext, SchemaExplorer}
 
   import Dai.DashboardComponents
-  import Dai.SchemaExplorerComponents, only: [empty_state: 1]
+  import Dai.SchemaExplorerComponents, only: [empty_state: 1, schema_panel: 1]
   import Dai.SidebarComponents, only: [sidebar: 1]
 
   @impl true
@@ -21,12 +21,28 @@ defmodule Dai.DashboardLive do
         />
         <div class="flex-1 min-w-0 p-6">
           <div class="max-w-7xl mx-auto">
+            <div class="flex items-center justify-end mb-2">
+              <button
+                id="schema-toggle"
+                phx-click="toggle_schema_panel"
+                class="btn btn-ghost btn-sm gap-1"
+              >
+                <Icons.table_cells class="size-4" /> Schema
+              </button>
+            </div>
             <.query_input form={@form} loading={@loading} />
             <.loading_skeleton :if={@loading} />
             <.results_grid streams={@streams} folders={@folders} schema_explorer={@schema_explorer} />
           </div>
         </div>
       </div>
+      <.schema_panel
+        schema_panel_open={@schema_panel_open}
+        schema_explorer={@schema_explorer}
+        explorer_focus={@explorer_focus}
+        explorer_suggestions={@explorer_suggestions}
+        explorer_loading={@explorer_loading}
+      />
     </.dai_wrapper>
     """
   end
@@ -161,7 +177,12 @@ defmodule Dai.DashboardLive do
        folders: Folders.list_folders(),
        active_folder_id: nil,
        folder_queries: [],
-       schema_explorer: SchemaExplorer.get()
+       schema_explorer: SchemaExplorer.get(),
+       schema_panel_open: false,
+       explorer_focus: [],
+       explorer_suggestions: [],
+       explorer_loading: false,
+       explorer_suggestion_ref: nil
      )
      |> assign(:form, to_form(%{"prompt" => ""}, as: :query))
      |> stream(:results, [])}
@@ -319,9 +340,67 @@ defmodule Dai.DashboardLive do
     end
   end
 
+  # --- Schema panel events ---
+
+  def handle_event("toggle_schema_panel", _params, socket) do
+    {:noreply, assign(socket, schema_panel_open: !socket.assigns.schema_panel_open)}
+  end
+
+  def handle_event("select_table", %{"name" => name}, socket) do
+    focus = socket.assigns.explorer_focus
+
+    if name in focus do
+      {:noreply, socket}
+    else
+      new_focus = focus ++ [name]
+      socket = assign(socket, explorer_focus: new_focus, explorer_loading: true)
+      send(self(), {:fetch_suggestions, new_focus})
+      {:noreply, socket}
+    end
+  end
+
+  def handle_event("deselect_table", %{"name" => name}, socket) do
+    new_focus = List.delete(socket.assigns.explorer_focus, name)
+
+    if new_focus == [] do
+      {:noreply,
+       assign(socket, explorer_focus: [], explorer_suggestions: [], explorer_loading: false)}
+    else
+      socket = assign(socket, explorer_focus: new_focus, explorer_loading: true)
+      send(self(), {:fetch_suggestions, new_focus})
+      {:noreply, socket}
+    end
+  end
+
+  def handle_event("reset_explorer", _params, socket) do
+    {:noreply,
+     assign(socket, explorer_focus: [], explorer_suggestions: [], explorer_loading: false)}
+  end
+
   # --- Task results ---
 
   @impl true
+  def handle_info({:fetch_suggestions, table_names}, socket) do
+    task =
+      Task.async(fn ->
+        {:explorer_suggestions, SchemaExplorer.suggest(table_names)}
+      end)
+
+    {:noreply, assign(socket, explorer_suggestion_ref: task.ref)}
+  end
+
+  def handle_info({ref, {:explorer_suggestions, suggestions}}, socket)
+      when socket.assigns.explorer_suggestion_ref == ref do
+    Process.demonitor(ref, [:flush])
+
+    {:noreply,
+     assign(socket,
+       explorer_suggestions: suggestions,
+       explorer_loading: false,
+       explorer_suggestion_ref: nil
+     )}
+  end
+
   # Single query result (from run_query)
   def handle_info({ref, result}, socket) when socket.assigns.task_ref == ref do
     Process.demonitor(ref, [:flush])

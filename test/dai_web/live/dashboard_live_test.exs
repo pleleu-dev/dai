@@ -133,4 +133,50 @@ defmodule DaiWeb.DashboardLiveTest do
       refute render(view) =~ "doomed query?"
     end
   end
+
+  describe "schema panel" do
+    test "schema panel is hidden by default", %{conn: conn} do
+      {:ok, view, _html} = live(conn, "/")
+      refute has_element?(view, "#schema-panel-content")
+    end
+
+    test "toggle_schema_panel opens the panel", %{conn: conn} do
+      {:ok, view, _html} = live(conn, "/")
+
+      view |> element("#schema-toggle") |> render_click()
+      assert has_element?(view, "#schema-panel-content")
+    end
+
+    test "select_table shows table detail", %{conn: conn} do
+      {:ok, view, _html} = live(conn, "/")
+
+      view |> element("#schema-toggle") |> render_click()
+      view |> element("button[phx-click=select_table][phx-value-name=users]") |> render_click()
+
+      html = render(view)
+      assert html =~ "email"
+      assert html =~ "string"
+      assert has_element?(view, "#explorer-focus")
+    end
+
+    test "deselect_table removes table from focus", %{conn: conn} do
+      {:ok, view, _html} = live(conn, "/")
+
+      view |> element("#schema-toggle") |> render_click()
+      view |> element("button[phx-click=select_table][phx-value-name=users]") |> render_click()
+      view |> element("button[phx-click=deselect_table][phx-value-name=users]") |> render_click()
+
+      refute has_element?(view, "#explorer-focus")
+    end
+
+    test "reset_explorer clears all focused tables", %{conn: conn} do
+      {:ok, view, _html} = live(conn, "/")
+
+      view |> element("#schema-toggle") |> render_click()
+      view |> element("button[phx-click=select_table][phx-value-name=users]") |> render_click()
+      view |> element("button[phx-click=reset_explorer]") |> render_click()
+
+      refute has_element?(view, "#explorer-focus")
+    end
+  end
 end
