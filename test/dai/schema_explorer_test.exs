@@ -48,5 +48,23 @@ defmodule Dai.SchemaExplorerTest do
         assert table.row_count >= 0
       end)
     end
+
+    test "suggestions is a list (may be empty if API unavailable)" do
+      %{suggestions: suggestions} = SchemaExplorer.get()
+      assert is_list(suggestions)
+    end
+  end
+
+  describe "boot suggestions structure" do
+    test "each suggestion has text and tables keys when present" do
+      %{suggestions: suggestions} = SchemaExplorer.get()
+
+      Enum.each(suggestions, fn suggestion ->
+        assert Map.has_key?(suggestion, :text)
+        assert Map.has_key?(suggestion, :tables)
+        assert is_binary(suggestion.text)
+        assert is_list(suggestion.tables)
+      end)
+    end
   end
 end

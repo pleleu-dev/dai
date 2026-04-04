@@ -27,7 +27,9 @@ defmodule Dai.SchemaExplorer do
   defp build_explorer_data do
     schemas = discover_schemas()
     tables = build_tables(schemas)
-    %{tables: tables, suggestions: []}
+    schema_context = Dai.SchemaContext.get()
+    suggestions = generate_boot_suggestions(schema_context)
+    %{tables: tables, suggestions: suggestions}
   end
 
   defp build_tables(schemas) do
@@ -79,6 +81,71 @@ defmodule Dai.SchemaExplorer do
     case repo.query(~s[SELECT count(*) FROM "#{table_name}"]) do
       {:ok, %{rows: [[count]]}} -> count
       _ -> 0
+    end
+  end
+
+  @suggestion_prompt """
+  Given this database schema:
+
+  %SCHEMA%
+
+  Generate 5-8 example questions that a non-technical user would find useful for exploring this data.
+  Prefer questions that span multiple tables (JOINs).
+  Return ONLY a valid JSON array, no other text:
+  [{"text": "human-readable question", "tables": ["table1", "table2"]}]
+  """
+
+  defp generate_boot_suggestions(schema_context) do
+    prompt = String.replace(@suggestion_prompt, "%SCHEMA%", schema_context)
+
+    case call_suggestion_api(prompt) do
+      {:ok, suggestions} -> suggestions
+      {:error, _} -> []
+    end
+  end
+
+  defp call_suggestion_api(prompt) do
+    api_key = Dai.Config.api_key()
+    if is_nil(api_key), do: throw(:no_key)
+
+    case Req.post("https://api.anthropic.com/v1/messages",
+           json: %{
+             model: Dai.Config.model(),
+             max_tokens: Dai.Config.max_tokens(),
+             messages: [%{role: "user", content: prompt}]
+           },
+           headers: [
+             {"x-api-key", api_key},
+             {"anthropic-version", "2023-06-01"},
+             {"content-type", "application/json"}
+           ],
+           receive_timeout: 30_000
+         ) do
+      {:ok, %Req.Response{status: 200, body: %{"content" => [%{"text" => text} | _]}}} ->
+        parse_suggestions(text)
+
+      _ ->
+        {:error, :api_error}
+    end
+  catch
+    :no_key -> {:error, :no_api_key}
+  end
+
+  defp parse_suggestions(text) do
+    case Jason.decode(text) do
+      {:ok, list} when is_list(list) ->
+        suggestions =
+          Enum.map(list, fn item ->
+            %{
+              text: Map.get(item, "text", ""),
+              tables: Map.get(item, "tables", [])
+            }
+          end)
+
+        {:ok, suggestions}
+
+      _ ->
+        {:error, :invalid_json}
     end
   end
 
