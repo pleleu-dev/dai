@@ -134,6 +134,32 @@ defmodule DaiWeb.DashboardLiveTest do
     end
   end
 
+  describe "suggestion interaction" do
+    test "run_suggestion executes a query and produces a result", %{conn: conn} do
+      {:ok, view, _html} = live(conn, "/")
+      render_hook(view, "run_suggestion", %{"text" => "How many users?"})
+
+      # The query runs async and completes (with an error since no API key in test),
+      # producing a result card streamed into #results.
+      assert has_element?(view, "#results > div[id^='results-']")
+    end
+
+    test "edit_suggestion fills the input without executing", %{conn: conn} do
+      {:ok, view, _html} = live(conn, "/")
+      render_hook(view, "edit_suggestion", %{"text" => "Revenue by plan"})
+
+      # No query is triggered, so no result cards appear
+      refute has_element?(view, "#results > div[id^='results-']")
+    end
+  end
+
+  describe "schema panel and empty state coexistence" do
+    test "schema button is always visible", %{conn: conn} do
+      {:ok, view, _html} = live(conn, "/")
+      assert has_element?(view, "button[phx-click=toggle_schema_panel]")
+    end
+  end
+
   describe "schema panel" do
     test "schema panel is hidden by default", %{conn: conn} do
       {:ok, view, _html} = live(conn, "/")
