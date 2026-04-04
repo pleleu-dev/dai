@@ -65,12 +65,23 @@ defmodule Dai.SchemaExplorer do
   end
 
   defp generate_on_demand_suggestions(table_names) do
-    %{tables: all_tables} = get()
+    %{tables: all_tables, suggestions: boot_suggestions} = get()
+
+    # Start with boot suggestions that match any selected table
+    matching_boot =
+      Enum.filter(boot_suggestions, fn s ->
+        Enum.any?(s.tables, &(&1 in table_names))
+      end)
 
     selected_schemas =
       all_tables
       |> Enum.filter(&(&1.name in table_names))
       |> Enum.map_join("\n\n", &format_table_for_prompt/1)
+
+    focus_hint =
+      if length(table_names) == 1,
+        do: "Focus on useful queries for this single table.",
+        else: "Focus on queries that combine these tables."
 
     prompt = """
     Given these database tables:
@@ -78,14 +89,23 @@ defmodule Dai.SchemaExplorer do
     #{selected_schemas}
 
     Generate 3-5 example questions a non-technical user would ask about this data.
-    Focus on queries that combine these tables.
+    #{focus_hint}
     Return ONLY a valid JSON array, no other text:
     [{"text": "human-readable question", "tables": ["table1", "table2"]}]
     """
 
     case call_suggestion_api(prompt) do
-      {:ok, suggestions} -> suggestions
-      {:error, _} -> []
+      {:ok, ai_suggestions} ->
+        # Merge boot matches + AI suggestions, dedup by text
+        seen = MapSet.new(ai_suggestions, & &1.text)
+
+        unique_boot =
+          Enum.reject(matching_boot, &MapSet.member?(seen, &1.text))
+
+        ai_suggestions ++ unique_boot
+
+      {:error, _} ->
+        matching_boot
     end
   end
 
