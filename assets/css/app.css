@@ -109,35 +109,29 @@
 
 /* GridStack DaisyUI theme integration */
 .grid-stack {
-  min-height: 160px;
+  min-height: 200px;
 }
 
-.grid-stack-item-content {
-  background: transparent;
-  border: none;
-  inset: 0;
-}
-
+/* Card content: fill the grid item, scroll if needed */
 .grid-stack > .grid-stack-item > .grid-stack-item-content {
-  overflow: visible;
-}
-
-.gs-item-content {
   background: transparent;
+  overflow-y: auto;
+  overflow-x: hidden;
 }
 
-/* Resize handle styling — keep default SVG, improve visibility */
-.grid-stack > .grid-stack-item > .ui-resizable-se {
-  width: 20px;
-  height: 20px;
-  bottom: 2px;
-  right: 2px;
-  opacity: 0.4;
-  z-index: 10;
+/* Make the DaisyUI card inside fill the content area */
+.grid-stack-item-content > .card {
+  height: 100%;
 }
 
-.grid-stack > .grid-stack-item:hover > .ui-resizable-se {
-  opacity: 0.8;
+/* Resize handle — visible on hover */
+.grid-stack > .grid-stack-item > .ui-resizable-handle {
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+.grid-stack > .grid-stack-item:hover > .ui-resizable-handle {
+  opacity: 0.6;
 }
 
 /* Placeholder styling during drag */

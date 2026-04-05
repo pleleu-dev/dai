@@ -3,14 +3,14 @@ const GridStack = gridstack.GridStack || gridstack
 
 const DEFAULT_SIZES = {
   kpi_metric:          { w: 1, h: 1 },
-  bar_chart:           { w: 2, h: 2 },
-  line_chart:          { w: 2, h: 2 },
-  pie_chart:           { w: 2, h: 2 },
-  data_table:          { w: 4, h: 2 },
-  error:               { w: 2, h: 1 },
-  clarification:       { w: 2, h: 1 },
-  action_confirmation: { w: 2, h: 2 },
-  action_result:       { w: 2, h: 1 },
+  bar_chart:           { w: 2, h: 3 },
+  line_chart:          { w: 2, h: 3 },
+  pie_chart:           { w: 2, h: 3 },
+  data_table:          { w: 4, h: 3 },
+  error:               { w: 2, h: 2 },
+  clarification:       { w: 2, h: 2 },
+  action_confirmation: { w: 2, h: 3 },
+  action_result:       { w: 2, h: 2 },
 }
 
 const DaiGridStack = {
