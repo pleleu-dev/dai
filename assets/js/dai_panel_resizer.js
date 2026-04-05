@@ -4,19 +4,26 @@ const DaiPanelResizer = {
     this.name = this.el.dataset.name           // "main_split" or "right_split"
     this.dragging = false
 
-    this.el.addEventListener("mousedown", (e) => this.startDrag(e))
-    document.addEventListener("mousemove", (e) => this.onDrag(e))
-    document.addEventListener("mouseup", () => this.stopDrag())
-
-    // Touch support
-    this.el.addEventListener("touchstart", (e) => this.startDrag(e.touches[0]))
-    document.addEventListener("touchmove", (e) => {
+    // Store named references for cleanup
+    this._onMouseDown = (e) => this.startDrag(e)
+    this._onMouseMove = (e) => this.onDrag(e)
+    this._onMouseUp = () => this.stopDrag()
+    this._onTouchStart = (e) => this.startDrag(e.touches[0])
+    this._onTouchMove = (e) => {
       if (this.dragging) {
         e.preventDefault()
         this.onDrag(e.touches[0])
       }
-    }, { passive: false })
-    document.addEventListener("touchend", () => this.stopDrag())
+    }
+    this._onTouchEnd = () => this.stopDrag()
+
+    this.el.addEventListener("mousedown", this._onMouseDown)
+    document.addEventListener("mousemove", this._onMouseMove)
+    document.addEventListener("mouseup", this._onMouseUp)
+
+    this.el.addEventListener("touchstart", this._onTouchStart)
+    document.addEventListener("touchmove", this._onTouchMove, { passive: false })
+    document.addEventListener("touchend", this._onTouchEnd)
   },
 
   startDrag(e) {
@@ -88,6 +95,10 @@ const DaiPanelResizer = {
   },
 
   destroyed() {
+    document.removeEventListener("mousemove", this._onMouseMove)
+    document.removeEventListener("mouseup", this._onMouseUp)
+    document.removeEventListener("touchmove", this._onTouchMove)
+    document.removeEventListener("touchend", this._onTouchEnd)
     document.body.style.cursor = ""
     document.body.style.userSelect = ""
   }

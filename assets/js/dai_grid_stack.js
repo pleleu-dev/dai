@@ -86,9 +86,7 @@ const DaiGridStack = {
     this.grid.makeWidget(el, opts)
   },
 
-  updated() {
-    // Re-sync if LiveView patches the container
-  },
+  updated() {},
 
   destroyed() {
     if (this.observer) this.observer.disconnect()
