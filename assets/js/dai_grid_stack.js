@@ -1,16 +1,18 @@
 import gridstack from "../vendor/gridstack"
 const GridStack = gridstack.GridStack || gridstack
 
+// Using 12-column grid (GridStack default, has built-in CSS)
+// Scale: 3 cols = 1/4, 6 cols = 1/2, 9 cols = 3/4, 12 cols = full
 const DEFAULT_SIZES = {
-  kpi_metric:          { w: 1, h: 1 },
-  bar_chart:           { w: 2, h: 3 },
-  line_chart:          { w: 2, h: 3 },
-  pie_chart:           { w: 2, h: 3 },
-  data_table:          { w: 4, h: 3 },
-  error:               { w: 2, h: 2 },
-  clarification:       { w: 2, h: 2 },
-  action_confirmation: { w: 2, h: 3 },
-  action_result:       { w: 2, h: 2 },
+  kpi_metric:          { w: 3,  h: 2 },
+  bar_chart:           { w: 6,  h: 3 },
+  line_chart:          { w: 6,  h: 3 },
+  pie_chart:           { w: 6,  h: 3 },
+  data_table:          { w: 12, h: 3 },
+  error:               { w: 6,  h: 2 },
+  clarification:       { w: 6,  h: 2 },
+  action_confirmation: { w: 6,  h: 3 },
+  action_result:       { w: 6,  h: 2 },
 }
 
 const DaiGridStack = {
@@ -18,7 +20,7 @@ const DaiGridStack = {
     this.savedLayouts = JSON.parse(this.el.dataset.gsLayout || "{}")
 
     this.grid = GridStack.init({
-      column: 4,
+      column: 12,
       cellHeight: 120,
       margin: 8,
       float: false,
@@ -66,35 +68,29 @@ const DaiGridStack = {
       ? { x: saved.x, y: saved.y, w: saved.w, h: saved.h }
       : { w: defaults.w, h: defaults.h, autoPosition: true }
 
-    // Build proper GridStack DOM structure:
-    // <div class="grid-stack-item">
-    //   <div class="grid-stack-item-content">...card html...</div>
-    // </div>
-    const item = document.createElement("div")
-    item.classList.add("grid-stack-item")
-    item.dataset.layoutKey = layoutKey
-    item.dataset.cardType = cardType
-    item.dataset.cardId = id
+    // v11 API: addWidget(opts) creates the widget with proper structure.
+    // We wrap in batchUpdate to ensure styles are generated after.
+    opts.id = id
+    opts.content = ""
 
-    const content = document.createElement("div")
-    content.classList.add("grid-stack-item-content")
+    const widget = this.grid.addWidget(opts)
+    // GridStack v11 doesn't auto-generate height stylesheet in some cases.
+    // Force it after adding a widget.
+    if (!this._stylesCreated) {
+      this.grid._updateStyles(true, this.grid.getRow())
+      this._stylesCreated = true
+    } else {
+      this.grid._updateStyles(false, this.grid.getRow())
+    }
 
-    // Parse server-rendered Phoenix HTML (trusted source) via template
-    const tpl = document.createElement("template")
-    tpl.innerHTML = html  // safe: server-rendered Phoenix component HTML
-    content.appendChild(tpl.content)
-
-    item.appendChild(content)
-
-    // Set GridStack attributes before adding
-    item.setAttribute("gs-w", opts.w)
-    item.setAttribute("gs-h", opts.h)
-    if (opts.x !== undefined) item.setAttribute("gs-x", opts.x)
-    if (opts.y !== undefined) item.setAttribute("gs-y", opts.y)
-    if (opts.autoPosition) item.setAttribute("gs-auto-position", "true")
-
-    this.el.appendChild(item)
-    this.grid.makeWidget(item)
+    if (widget) {
+      widget.dataset.layoutKey = layoutKey
+      widget.dataset.cardType = cardType
+      widget.dataset.cardId = id
+      // Inject server-rendered Phoenix HTML (trusted source)
+      const contentDiv = widget.querySelector(".grid-stack-item-content")
+      if (contentDiv) contentDiv.innerHTML = html  // safe: server-rendered HTML
+    }
     this.updateEmptyState()
   },
 
