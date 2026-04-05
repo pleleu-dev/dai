@@ -1,4 +1,5 @@
-import { GridStack } from "../vendor/gridstack"
+import gridstack from "../vendor/gridstack"
+const GridStack = gridstack.GridStack || gridstack
 
 const DEFAULT_SIZES = {
   kpi_metric:          { w: 1, h: 1 },
