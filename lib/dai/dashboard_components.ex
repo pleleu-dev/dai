@@ -24,7 +24,7 @@ defmodule Dai.DashboardComponents do
             <h2 class="card-title text-sm">{@result.title}</h2>
             <p class="text-xs text-base-content/60">{@result.description}</p>
           </div>
-          <div class="flex items-center gap-0.5 shrink-0">
+          <div class="flex items-center gap-0.5 shrink-0 no-drag">
             <Dai.SidebarComponents.save_button
               :if={@result.type not in [:error, :clarification, :action_confirmation, :action_result]}
               result_id={@result.id}
@@ -162,7 +162,7 @@ defmodule Dai.DashboardComponents do
       <button
         phx-click="retry"
         phx-value-prompt={@result.prompt}
-        class="btn btn-sm btn-outline btn-error"
+        class="btn btn-sm btn-outline btn-error no-drag"
       >
         Try again
       </button>
@@ -179,7 +179,7 @@ defmodule Dai.DashboardComponents do
         <Icons.chat_bubble class="size-5 text-info shrink-0 mt-0.5" />
         <p class="text-sm text-base-content">{@result.question}</p>
       </div>
-      <form phx-submit="query" class="flex gap-2">
+      <form phx-submit="query" class="flex gap-2 no-drag">
         <input
           type="text"
           name="prompt"
@@ -240,7 +240,7 @@ defmodule Dai.DashboardComponents do
         <Icons.exclamation_triangle class="size-4 text-warning shrink-0" />
         <span>{msg}</span>
       </div>
-      <div class="flex gap-2 justify-end">
+      <div class="flex gap-2 justify-end no-drag">
         <button
           phx-click="dismiss"
           phx-value-id={@result.id}
