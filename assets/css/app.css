@@ -7,6 +7,8 @@
 @source "../../lib/dai_web";
 @source "../../lib/dai";
 
+@import "../vendor/gridstack.css";
+
 /* A Tailwind plugin that makes "hero-#{ICON}" classes available.
    The heroicons installation itself is managed by your mix.exs */
 @plugin "../vendor/heroicons";
@@ -104,3 +106,41 @@
 [data-phx-session], [data-phx-teleported-src] { display: contents }
 
 /* This file is for your main application CSS */
+
+/* GridStack DaisyUI theme integration */
+.grid-stack {
+  min-height: 160px;
+}
+
+.grid-stack-item-content {
+  background: transparent;
+  border: none;
+  inset: 0;
+}
+
+.grid-stack > .grid-stack-item > .grid-stack-item-content {
+  overflow: visible;
+}
+
+.gs-item-content {
+  background: transparent;
+}
+
+/* Resize handle styling */
+.grid-stack > .grid-stack-item > .ui-resizable-se {
+  width: 20px;
+  height: 20px;
+  background: none;
+  border-bottom: 2px solid oklch(var(--bc) / 0.2);
+  border-right: 2px solid oklch(var(--bc) / 0.2);
+  border-radius: 0 0 4px 0;
+  bottom: 4px;
+  right: 4px;
+}
+
+/* Placeholder styling during drag */
+.grid-stack > .grid-stack-placeholder > .placeholder-content {
+  border: 2px dashed oklch(var(--p) / 0.4);
+  background: oklch(var(--p) / 0.05);
+  border-radius: 8px;
+}
