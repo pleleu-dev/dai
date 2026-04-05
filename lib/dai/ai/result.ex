@@ -23,7 +23,8 @@ defmodule Dai.AI.Result do
           action_id: String.t() | nil,
           action_targets: [map()] | nil,
           action_params: map() | nil,
-          timestamp: DateTime.t()
+          timestamp: DateTime.t(),
+          layout_key: String.t() | nil
         }
 
   @enforce_keys [:id, :type, :prompt, :timestamp]
@@ -40,7 +41,8 @@ defmodule Dai.AI.Result do
     :action_id,
     :action_targets,
     :action_params,
-    :timestamp
+    :timestamp,
+    :layout_key
   ]
 
   def generate_id do

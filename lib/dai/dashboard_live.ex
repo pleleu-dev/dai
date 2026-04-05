@@ -2,7 +2,7 @@ defmodule Dai.DashboardLive do
   use Phoenix.LiveView
 
   alias Dai.AI.{ActionExecutor, ActionRegistry, QueryPipeline, Result, ResultAssembler}
-  alias Dai.{Folders, Icons, SchemaContext, SchemaExplorer}
+  alias Dai.{DashboardLayout, Folders, Icons, SchemaContext, SchemaExplorer}
 
   import Dai.DashboardComponents
   import Dai.SchemaExplorerComponents, only: [empty_state: 1, schema_panel: 1]
@@ -481,8 +481,14 @@ defmodule Dai.DashboardLive do
      )}
   end
 
-  defp result_to_card({:ok, result}, _prompt), do: result
-  defp result_to_card({:error, reason}, prompt), do: Result.error(reason, prompt)
+  defp result_to_card({:ok, result}, _prompt) do
+    %{result | layout_key: DashboardLayout.layout_key(result.prompt)}
+  end
+
+  defp result_to_card({:error, reason}, prompt) do
+    error = Result.error(reason, prompt)
+    %{error | layout_key: DashboardLayout.layout_key(prompt)}
+  end
 
   defp maybe_store_pending_action(socket, %Result{type: :action_confirmation} = result) do
     assign(socket,
