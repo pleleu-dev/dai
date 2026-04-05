@@ -13,14 +13,6 @@ const DEFAULT_SIZES = {
   action_result:       { w: 2, h: 1 },
 }
 
-// Tell GridStack how to render widget content (used by addWidget with 'content' option)
-GridStack.renderCB = function(el, widget) {
-  const contentEl = el.querySelector(".grid-stack-item-content")
-  if (contentEl && widget.content) {
-    contentEl.innerHTML = widget.content  // safe: server-rendered Phoenix HTML
-  }
-}
-
 const DaiGridStack = {
   mounted() {
     this.savedLayouts = JSON.parse(this.el.dataset.gsLayout || "{}")
@@ -32,7 +24,7 @@ const DaiGridStack = {
       float: true,
       animate: true,
       draggable: { cancel: ".no-drag" },
-      resizable: { handles: "se" },
+      resizable: { handles: "e, se, s" },
       disableOneColumnMode: true,
     }, this.el)
 
@@ -74,23 +66,40 @@ const DaiGridStack = {
       ? { x: saved.x, y: saved.y, w: saved.w, h: saved.h }
       : { w: defaults.w, h: defaults.h, autoPosition: true }
 
-    // GridStack.addWidget accepts an options object with 'content'
-    // or a DOM element. We use options with 'id' so GridStack creates
-    // the proper grid-stack-item > grid-stack-item-content structure.
-    opts.id = id
-    opts.content = html  // server-rendered Phoenix component HTML (trusted)
+    // Build proper GridStack DOM structure:
+    // <div class="grid-stack-item">
+    //   <div class="grid-stack-item-content">...card html...</div>
+    // </div>
+    const item = document.createElement("div")
+    item.classList.add("grid-stack-item")
+    item.dataset.layoutKey = layoutKey
+    item.dataset.cardType = cardType
+    item.dataset.cardId = id
 
-    const widget = this.grid.addWidget(opts)
-    if (widget) {
-      widget.dataset.layoutKey = layoutKey
-      widget.dataset.cardType = cardType
-    }
+    const content = document.createElement("div")
+    content.classList.add("grid-stack-item-content")
+
+    // Parse server-rendered Phoenix HTML (trusted source) via template
+    const tpl = document.createElement("template")
+    tpl.innerHTML = html  // safe: server-rendered Phoenix component HTML
+    content.appendChild(tpl.content)
+
+    item.appendChild(content)
+
+    // Set GridStack attributes before adding
+    item.setAttribute("gs-w", opts.w)
+    item.setAttribute("gs-h", opts.h)
+    if (opts.x !== undefined) item.setAttribute("gs-x", opts.x)
+    if (opts.y !== undefined) item.setAttribute("gs-y", opts.y)
+    if (opts.autoPosition) item.setAttribute("gs-auto-position", "true")
+
+    this.el.appendChild(item)
+    this.grid.makeWidget(item)
     this.updateEmptyState()
   },
 
   removeCard(id) {
-    // GridStack sets gs-id attribute from the 'id' option
-    const el = this.el.querySelector(`[gs-id="${id}"]`)
+    const el = this.el.querySelector(`[data-card-id="${id}"]`)
     if (el) {
       this.grid.removeWidget(el)
       this.updateEmptyState()
