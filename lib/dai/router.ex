@@ -28,7 +28,8 @@ defmodule Dai.Router do
     # opts are AST nodes at macro expansion time — extract them as AST
     layout_ast = Keyword.get(opts, :layout)
     on_mount_ast = Keyword.get(opts, :on_mount, [])
-    live_opts_ast = Keyword.drop(opts, [:layout, :on_mount])
+    user_token_getter = Keyword.get(opts, :user_token)
+    live_opts_ast = Keyword.drop(opts, [:layout, :on_mount, :user_token])
 
     has_layout = layout_ast != nil
 
@@ -51,11 +52,30 @@ defmodule Dai.Router do
         end
       end)
       |> then(fn acc ->
-        if has_layout do
-          session_map = Macro.escape(%{"dai_host_layout" => true})
-          [{:session, session_map} | acc]
-        else
-          acc
+        has_user_token = user_token_getter != nil
+
+        cond do
+          has_layout and has_user_token ->
+            session_ast =
+              quote do
+                %{"dai_host_layout" => true, "dai_user_token" => unquote(user_token_getter)}
+              end
+
+            [{:session, session_ast} | acc]
+
+          has_layout ->
+            [{:session, Macro.escape(%{"dai_host_layout" => true})} | acc]
+
+          has_user_token ->
+            session_ast =
+              quote do
+                %{"dai_user_token" => unquote(user_token_getter)}
+              end
+
+            [{:session, session_ast} | acc]
+
+          true ->
+            acc
         end
       end)
 
