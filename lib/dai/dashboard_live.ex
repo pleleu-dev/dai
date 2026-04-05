@@ -16,6 +16,7 @@ defmodule Dai.DashboardLive do
         <div
           style={"width: #{@panel_sizes["main_split"]}%"}
           class="min-w-0 flex flex-col"
+          data-panel="main_split-first"
         >
           <div class="p-6 pb-0 shrink-0">
             <.query_input form={@form} loading={@loading} />
@@ -50,9 +51,14 @@ defmodule Dai.DashboardLive do
           style={"width: #{100 - @panel_sizes["main_split"]}%"}
           class="min-w-0 flex flex-col border-l border-base-300 bg-base-200/30"
           id="right-panel"
+          data-panel="main_split-second"
         >
           <%!-- Folders section --%>
-          <div style={"height: #{@panel_sizes["right_split"]}%"} class="min-h-0 flex flex-col">
+          <div
+            style={"height: #{@panel_sizes["right_split"]}%"}
+            class="min-h-0 flex flex-col"
+            data-panel="right_split-first"
+          >
             <.folder_panel
               folders={@folders}
               active_folder_id={@active_folder_id}
@@ -72,7 +78,11 @@ defmodule Dai.DashboardLive do
           </div>
 
           <%!-- Schema Explorer section --%>
-          <div style={"height: #{100 - @panel_sizes["right_split"]}%"} class="min-h-0 flex flex-col">
+          <div
+            style={"height: #{100 - @panel_sizes["right_split"]}%"}
+            class="min-h-0 flex flex-col"
+            data-panel="right_split-second"
+          >
             <.schema_panel_content
               schema_explorer={@schema_explorer}
               explorer_focus={@explorer_focus}
@@ -184,7 +194,11 @@ defmodule Dai.DashboardLive do
   @impl true
   def mount(_params, session, socket) do
     host_layout = Map.get(session, "dai_host_layout", false)
-    user_token = Map.get(session, "dai_user_token", generate_fallback_token())
+
+    user_token =
+      Map.get(session, "dai_user_token") ||
+        get_connect_params(socket)["dai_user_token"] ||
+        generate_fallback_token()
 
     prefs = DashboardPreferences.get_preferences(user_token)
     saved_layouts = DashboardLayout.get_layouts(user_token)
@@ -291,27 +305,11 @@ defmodule Dai.DashboardLive do
     end
   end
 
-  def handle_event("create_folder", %{"name" => name}, socket) when name != "" do
-    case Folders.create_folder(%{
-           name: name,
-           position: length(socket.assigns.folders)
-         }) do
-      {:ok, folder} ->
-        {:noreply,
-         socket
-         |> reload_folders()
-         |> assign(active_folder_id: folder.id, folder_queries: [])}
+  def handle_event("create_folder", params, socket) do
+    name = params |> Map.get("name", "") |> String.trim()
+    name = if name == "", do: Folders.default_folder_name(), else: name
 
-      {:error, _} ->
-        {:noreply, socket}
-    end
-  end
-
-  def handle_event("create_folder", _params, socket) do
-    case Folders.create_folder(%{
-           name: Folders.default_folder_name(),
-           position: length(socket.assigns.folders)
-         }) do
+    case Folders.create_folder(%{name: name, position: length(socket.assigns.folders)}) do
       {:ok, folder} ->
         {:noreply,
          socket
@@ -540,9 +538,7 @@ defmodule Dai.DashboardLive do
     assigns = %{result: card, folders: socket.assigns.folders}
 
     html =
-      rendered_to_string(
-        Dai.DashboardComponents.result_card(assigns)
-      )
+      rendered_to_string(Dai.DashboardComponents.result_card(assigns))
 
     push_event(socket, "add_card", %{
       id: card.id,

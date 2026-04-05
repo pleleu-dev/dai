@@ -59,21 +59,20 @@ defmodule Dai.DashboardLayout do
     end
   end
 
-  @doc "Batch upsert multiple card positions at once. Returns :ok or {:error, reason}."
+  @doc "Batch upsert multiple card positions atomically."
   def save_layouts(user_token, cards) when is_list(cards) do
-    results =
-      Enum.map(cards, fn %{"layout_key" => key} = card ->
-        save_layout(user_token, key, %{
-          x: card["x"],
-          y: card["y"],
-          w: card["w"],
-          h: card["h"]
-        })
+    repo().transaction(fn ->
+      Enum.each(cards, fn %{"layout_key" => key} = card ->
+        case save_layout(user_token, key, %{
+               x: card["x"],
+               y: card["y"],
+               w: card["w"],
+               h: card["h"]
+             }) do
+          {:ok, _} -> :ok
+          {:error, changeset} -> repo().rollback(changeset)
+        end
       end)
-
-    case Enum.find(results, &match?({:error, _}, &1)) do
-      nil -> :ok
-      error -> error
-    end
+    end)
   end
 end

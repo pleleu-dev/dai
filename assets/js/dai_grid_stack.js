@@ -55,6 +55,32 @@ const DaiGridStack = {
       }, 300)
     })
 
+    // Event delegation: phx-click/phx-submit inside phx-update="ignore"
+    // won't be bound by LiveView, so we handle them here.
+    this.el.addEventListener("click", (e) => {
+      const target = e.target.closest("[phx-click]")
+      if (!target) return
+      e.preventDefault()
+      e.stopPropagation()
+      const event = target.getAttribute("phx-click")
+      const values = {}
+      for (const attr of target.attributes) {
+        if (attr.name.startsWith("phx-value-")) {
+          values[attr.name.replace("phx-value-", "")] = attr.value
+        }
+      }
+      this.pushEvent(event, values)
+    })
+
+    this.el.addEventListener("submit", (e) => {
+      const form = e.target.closest("[phx-submit]")
+      if (!form) return
+      e.preventDefault()
+      const event = form.getAttribute("phx-submit")
+      const formData = new FormData(form)
+      this.pushEvent(event, Object.fromEntries(formData))
+    })
+
     // Hide empty state when cards exist
     this.emptyState = this.el.parentElement?.querySelector("#empty-state")
     this.updateEmptyState()
@@ -74,14 +100,8 @@ const DaiGridStack = {
     opts.content = ""
 
     const widget = this.grid.addWidget(opts)
-    // GridStack v11 doesn't auto-generate height stylesheet in some cases.
-    // Force it after adding a widget.
-    if (!this._stylesCreated) {
-      this.grid._updateStyles(true, this.grid.getRow())
-      this._stylesCreated = true
-    } else {
-      this.grid._updateStyles(false, this.grid.getRow())
-    }
+    // Force GridStack to regenerate its height stylesheet via public API
+    this.grid.cellHeight(this.grid.getCellHeight())
 
     if (widget) {
       widget.dataset.layoutKey = layoutKey

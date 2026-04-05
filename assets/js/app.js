@@ -27,9 +27,21 @@ import DaiPanelResizer from "./dai_panel_resizer"
 import DaiGridStack from "./dai_grid_stack"
 import topbar from "../vendor/topbar"
 const csrfToken = document.querySelector("meta[name='csrf-token']").getAttribute("content")
+
+// Persistent fallback token for layout persistence when host app has no auth
+function getDaiUserToken() {
+  let token = localStorage.getItem("dai_user_token")
+  if (!token) {
+    token = Array.from(crypto.getRandomValues(new Uint8Array(16)))
+      .map(b => b.toString(16).padStart(2, "0")).join("")
+    localStorage.setItem("dai_user_token", token)
+  }
+  return token
+}
+
 const liveSocket = new LiveSocket("/live", Socket, {
   longPollFallbackMs: 2500,
-  params: {_csrf_token: csrfToken},
+  params: {_csrf_token: csrfToken, dai_user_token: getDaiUserToken()},
   hooks: {...colocatedHooks, DaiPanelResizer, DaiGridStack},
 })
 

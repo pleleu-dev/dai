@@ -165,41 +165,6 @@ defmodule Dai.SchemaExplorerComponents do
     """
   end
 
-  attr :schema_panel_open, :boolean, required: true
-  attr :schema_explorer, :map, required: true
-  attr :explorer_focus, :list, required: true
-  attr :explorer_suggestions, :list, required: true
-  attr :explorer_loading, :boolean, required: true
-
-  def schema_panel(assigns) do
-    ~H"""
-    <div
-      :if={@schema_panel_open}
-      id="schema-panel-content"
-      class="fixed top-0 right-0 h-full w-80 z-40 bg-base-100 border-l border-base-300 shadow-xl overflow-y-auto p-4"
-    >
-      <div class="flex items-center justify-between mb-4">
-        <h2 class="text-base font-bold">Schema Explorer</h2>
-        <button
-          phx-click="toggle_schema_panel"
-          class="btn btn-ghost btn-sm btn-circle"
-          aria-label="Close schema panel"
-        >
-          <Icons.x_mark class="size-4" />
-        </button>
-      </div>
-      <.panel_table_list :if={@explorer_focus == []} schema_explorer={@schema_explorer} />
-      <.panel_table_detail
-        :if={@explorer_focus != []}
-        schema_explorer={@schema_explorer}
-        explorer_focus={@explorer_focus}
-        explorer_suggestions={@explorer_suggestions}
-        explorer_loading={@explorer_loading}
-      />
-    </div>
-    """
-  end
-
   attr :schema_explorer, :map, required: true
 
   defp panel_table_list(assigns) do

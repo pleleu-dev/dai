@@ -77,21 +77,15 @@ const DaiPanelResizer = {
 
   applySize(percentage) {
     const container = this.el.parentElement
-    const children = Array.from(container.children).filter(c => c !== this.el)
-    const first = children[0]
-    const second = children[1]
+    const first = container.querySelector(`[data-panel="${this.name}-first"]`)
+    const second = container.querySelector(`[data-panel="${this.name}-second"]`)
+    if (!first || !second) return
 
-    if (this.direction === "horizontal") {
-      first.style.width = `${percentage}%`
-      second.style.width = `${100 - percentage}%`
-      first.style.flex = "none"
-      second.style.flex = "none"
-    } else {
-      first.style.height = `${percentage}%`
-      second.style.height = `${100 - percentage}%`
-      first.style.flex = "none"
-      second.style.flex = "none"
-    }
+    const prop = this.direction === "horizontal" ? "width" : "height"
+    first.style[prop] = `${percentage}%`
+    second.style[prop] = `${100 - percentage}%`
+    first.style.flex = "none"
+    second.style.flex = "none"
   },
 
   destroyed() {

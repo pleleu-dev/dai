@@ -124,14 +124,15 @@
   height: 100%;
 }
 
-/* Resize handle — visible on hover */
-.grid-stack > .grid-stack-item > .ui-resizable-handle {
-  opacity: 0;
+/* Override autohide — always show resize handles, brighter on hover */
+.grid-stack > .grid-stack-item.ui-resizable-autohide > .ui-resizable-handle {
+  display: block !important;
+  opacity: 0.25;
   transition: opacity 0.15s;
 }
 
 .grid-stack > .grid-stack-item:hover > .ui-resizable-handle {
-  opacity: 0.6;
+  opacity: 0.7;
 }
 
 /* Placeholder styling during drag */
