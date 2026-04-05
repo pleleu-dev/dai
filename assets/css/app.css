@@ -144,3 +144,41 @@
   background: oklch(var(--p) / 0.05);
   border-radius: 8px;
 }
+
+/* Panel resizer bars */
+.dai-resizer {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color 0.15s;
+}
+
+.dai-resizer:hover,
+.dai-resizer.active {
+  background-color: oklch(var(--p) / 0.2);
+}
+
+.dai-resizer[data-direction="horizontal"] {
+  width: 6px;
+  cursor: col-resize;
+}
+
+.dai-resizer[data-direction="vertical"] {
+  height: 6px;
+  cursor: row-resize;
+}
+
+.dai-resizer-handle-h {
+  width: 2px;
+  height: 32px;
+  border-radius: 1px;
+  background-color: oklch(var(--bc) / 0.3);
+}
+
+.dai-resizer-handle-v {
+  width: 32px;
+  height: 2px;
+  border-radius: 1px;
+  background-color: oklch(var(--bc) / 0.3);
+}
