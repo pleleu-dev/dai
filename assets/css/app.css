@@ -126,16 +126,18 @@
   background: transparent;
 }
 
-/* Resize handle styling */
+/* Resize handle styling — keep default SVG, improve visibility */
 .grid-stack > .grid-stack-item > .ui-resizable-se {
   width: 20px;
   height: 20px;
-  background: none;
-  border-bottom: 2px solid oklch(var(--bc) / 0.2);
-  border-right: 2px solid oklch(var(--bc) / 0.2);
-  border-radius: 0 0 4px 0;
-  bottom: 4px;
-  right: 4px;
+  bottom: 2px;
+  right: 2px;
+  opacity: 0.4;
+  z-index: 10;
+}
+
+.grid-stack > .grid-stack-item:hover > .ui-resizable-se {
+  opacity: 0.8;
 }
 
 /* Placeholder styling during drag */

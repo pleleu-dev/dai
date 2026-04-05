@@ -13,13 +13,21 @@ const DEFAULT_SIZES = {
   action_result:       { w: 2, h: 1 },
 }
 
+// Tell GridStack how to render widget content (used by addWidget with 'content' option)
+GridStack.renderCB = function(el, widget) {
+  const contentEl = el.querySelector(".grid-stack-item-content")
+  if (contentEl && widget.content) {
+    contentEl.innerHTML = widget.content  // safe: server-rendered Phoenix HTML
+  }
+}
+
 const DaiGridStack = {
   mounted() {
     this.savedLayouts = JSON.parse(this.el.dataset.gsLayout || "{}")
 
     this.grid = GridStack.init({
       column: 4,
-      cellHeight: 80,
+      cellHeight: 120,
       margin: 8,
       float: true,
       animate: true,
@@ -59,17 +67,6 @@ const DaiGridStack = {
   },
 
   addCard(id, html, layoutKey, cardType) {
-    // Create wrapper element from server-rendered HTML (trusted source)
-    const el = document.createElement("div")
-    el.id = `card-${id}`
-    el.dataset.layoutKey = layoutKey
-    el.dataset.cardType = cardType
-
-    // HTML comes from Phoenix server-side rendering (trusted)
-    const template = document.createElement("template")
-    template.innerHTML = html  // safe: server-rendered Phoenix component HTML
-    el.appendChild(template.content)
-
     const saved = this.savedLayouts[layoutKey]
     const defaults = DEFAULT_SIZES[cardType] || { w: 2, h: 2 }
 
@@ -77,12 +74,23 @@ const DaiGridStack = {
       ? { x: saved.x, y: saved.y, w: saved.w, h: saved.h }
       : { w: defaults.w, h: defaults.h, autoPosition: true }
 
-    this.grid.addWidget(el, opts)
+    // GridStack.addWidget accepts an options object with 'content'
+    // or a DOM element. We use options with 'id' so GridStack creates
+    // the proper grid-stack-item > grid-stack-item-content structure.
+    opts.id = id
+    opts.content = html  // server-rendered Phoenix component HTML (trusted)
+
+    const widget = this.grid.addWidget(opts)
+    if (widget) {
+      widget.dataset.layoutKey = layoutKey
+      widget.dataset.cardType = cardType
+    }
     this.updateEmptyState()
   },
 
   removeCard(id) {
-    const el = this.el.querySelector(`#card-${id}`)
+    // GridStack sets gs-id attribute from the 'id' option
+    const el = this.el.querySelector(`[gs-id="${id}"]`)
     if (el) {
       this.grid.removeWidget(el)
       this.updateEmptyState()
