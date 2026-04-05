@@ -15,10 +15,8 @@ const DEFAULT_SIZES = {
 
 const DaiGridStack = {
   mounted() {
-    // Parse saved layouts from server-rendered attribute
     this.savedLayouts = JSON.parse(this.el.dataset.gsLayout || "{}")
 
-    // Initialize GridStack
     this.grid = GridStack.init({
       column: 4,
       cellHeight: 80,
@@ -30,27 +28,16 @@ const DaiGridStack = {
       disableOneColumnMode: true,
     }, this.el)
 
-    // Make existing children into widgets
-    this.initExistingCards()
-
-    // Observe for new cards added/removed by LiveView stream
-    this.observer = new MutationObserver((mutations) => {
-      for (const mutation of mutations) {
-        for (const node of mutation.addedNodes) {
-          if (node.nodeType === 1 && node.dataset.gsCard) {
-            this.addCardToGrid(node)
-          }
-        }
-        for (const node of mutation.removedNodes) {
-          if (node.nodeType === 1 && node.dataset.gsCard) {
-            this.grid.removeWidget(node, false)
-          }
-        }
-      }
+    // Listen for cards pushed from server
+    this.handleEvent("add_card", ({ id, html, layout_key, card_type }) => {
+      this.addCard(id, html, layout_key, card_type)
     })
-    this.observer.observe(this.el, { childList: true })
 
-    // Listen for layout changes (drag/resize)
+    this.handleEvent("remove_card", ({ id }) => {
+      this.removeCard(id)
+    })
+
+    // Push layout changes back to server on drag/resize
     this.debounceTimer = null
     this.grid.on("change", (_event, items) => {
       clearTimeout(this.debounceTimer)
@@ -65,18 +52,24 @@ const DaiGridStack = {
         }
       }, 300)
     })
+
+    // Hide empty state when cards exist
+    this.emptyState = this.el.parentElement?.querySelector("#empty-state")
+    this.updateEmptyState()
   },
 
-  initExistingCards() {
-    const cards = this.el.querySelectorAll("[data-gs-card]")
-    this.grid.batchUpdate(true)
-    cards.forEach(card => this.addCardToGrid(card))
-    this.grid.batchUpdate(false)
-  },
+  addCard(id, html, layoutKey, cardType) {
+    // Create wrapper element from server-rendered HTML (trusted source)
+    const el = document.createElement("div")
+    el.id = `card-${id}`
+    el.dataset.layoutKey = layoutKey
+    el.dataset.cardType = cardType
 
-  addCardToGrid(el) {
-    const layoutKey = el.dataset.layoutKey
-    const cardType = el.dataset.cardType
+    // HTML comes from Phoenix server-side rendering (trusted)
+    const template = document.createElement("template")
+    template.innerHTML = html  // safe: server-rendered Phoenix component HTML
+    el.appendChild(template.content)
+
     const saved = this.savedLayouts[layoutKey]
     const defaults = DEFAULT_SIZES[cardType] || { w: 2, h: 2 }
 
@@ -84,13 +77,28 @@ const DaiGridStack = {
       ? { x: saved.x, y: saved.y, w: saved.w, h: saved.h }
       : { w: defaults.w, h: defaults.h, autoPosition: true }
 
-    this.grid.makeWidget(el, opts)
+    this.grid.addWidget(el, opts)
+    this.updateEmptyState()
+  },
+
+  removeCard(id) {
+    const el = this.el.querySelector(`#card-${id}`)
+    if (el) {
+      this.grid.removeWidget(el)
+      this.updateEmptyState()
+    }
+  },
+
+  updateEmptyState() {
+    if (this.emptyState) {
+      const hasCards = this.el.querySelectorAll(".grid-stack-item").length > 0
+      this.emptyState.style.display = hasCards ? "none" : ""
+    }
   },
 
   updated() {},
 
   destroyed() {
-    if (this.observer) this.observer.disconnect()
     if (this.grid) this.grid.destroy(false)
     clearTimeout(this.debounceTimer)
   }

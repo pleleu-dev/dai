@@ -13,7 +13,7 @@ defmodule Dai.DashboardLiveLayoutTest do
     test "renders GridStack container with hook", %{conn: conn} do
       {:ok, view, _html} = live(conn, "/")
 
-      assert has_element?(view, "#results[phx-hook='DaiGridStack']")
+      assert has_element?(view, "#results-grid[phx-hook='DaiGridStack']")
     end
 
     test "renders horizontal resizer", %{conn: conn} do

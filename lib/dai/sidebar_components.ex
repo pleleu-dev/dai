@@ -1,10 +1,57 @@
 defmodule Dai.SidebarComponents do
-  @moduledoc "Function components for the collapsible folder sidebar."
+  @moduledoc "Function components for the folder panel and save actions."
 
   use Phoenix.Component
 
   alias Dai.Icons
   alias Phoenix.LiveView.JS
+
+  # --- Folder panel (new two-panel layout) ---
+
+  attr :folders, :list, required: true
+  attr :active_folder_id, :string, default: nil
+  attr :folder_queries, :list, default: []
+
+  def folder_panel(assigns) do
+    ~H"""
+    <div class="flex flex-col h-full">
+      <div class="flex items-center justify-between px-4 py-3 shrink-0 border-b border-base-300">
+        <div class="flex items-center gap-2">
+          <Icons.folder class="size-4 text-base-content/60" />
+          <span class="text-sm font-semibold">Folders</span>
+        </div>
+        <button
+          phx-click={toggle_dropdown("new-folder-input")}
+          class="btn btn-ghost btn-xs btn-square"
+          aria-label="Create folder"
+        >
+          <Icons.plus class="size-3.5" />
+        </button>
+      </div>
+      <div id="new-folder-input" class="hidden px-3 py-2 border-b border-base-300">
+        <form phx-submit="create_folder" class="flex gap-1">
+          <input
+            type="text"
+            name="name"
+            placeholder="Folder name"
+            class="input input-xs input-bordered flex-1"
+            phx-click-away={hide_dropdown("new-folder-input")}
+          />
+          <button type="submit" class="btn btn-primary btn-xs">Add</button>
+        </form>
+      </div>
+      <div class="flex-1 overflow-y-auto px-2 py-1">
+        <.expanded_folder_list
+          folders={@folders}
+          active_folder_id={@active_folder_id}
+          folder_queries={@folder_queries}
+        />
+      </div>
+    </div>
+    """
+  end
+
+  # --- Legacy sidebar (kept temporarily for backward compatibility) ---
 
   attr :sidebar_open, :boolean, required: true
   attr :folders, :list, required: true

@@ -137,6 +137,34 @@ defmodule Dai.SchemaExplorerComponents do
     """
   end
 
+  attr :schema_explorer, :map, required: true
+  attr :explorer_focus, :list, required: true
+  attr :explorer_suggestions, :list, required: true
+  attr :explorer_loading, :boolean, required: true
+
+  def schema_panel_content(assigns) do
+    ~H"""
+    <div class="flex flex-col h-full">
+      <div class="flex items-center gap-2 px-4 py-3 shrink-0 border-b border-base-300">
+        <Icons.table_cells class="size-4 text-base-content/60" />
+        <span class="text-sm font-semibold">Schema Explorer</span>
+      </div>
+      <div class="flex-1 overflow-y-auto px-2 py-1">
+        <%= if @explorer_focus == [] do %>
+          <.panel_table_list schema_explorer={@schema_explorer} />
+        <% else %>
+          <.panel_table_detail
+            schema_explorer={@schema_explorer}
+            explorer_focus={@explorer_focus}
+            explorer_suggestions={@explorer_suggestions}
+            explorer_loading={@explorer_loading}
+          />
+        <% end %>
+      </div>
+    </div>
+    """
+  end
+
   attr :schema_panel_open, :boolean, required: true
   attr :schema_explorer, :map, required: true
   attr :explorer_focus, :list, required: true

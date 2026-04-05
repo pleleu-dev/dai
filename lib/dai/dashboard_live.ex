@@ -2,47 +2,86 @@ defmodule Dai.DashboardLive do
   use Phoenix.LiveView
 
   alias Dai.AI.{ActionExecutor, ActionRegistry, QueryPipeline, Result, ResultAssembler}
-  alias Dai.{DashboardLayout, Folders, Icons, SchemaContext, SchemaExplorer}
+  alias Dai.{DashboardLayout, DashboardPreferences, Folders, Icons, SchemaContext, SchemaExplorer}
 
-  import Dai.DashboardComponents
-  import Dai.SchemaExplorerComponents, only: [empty_state: 1, schema_panel: 1]
-  import Dai.SidebarComponents, only: [sidebar: 1]
+  import Dai.SchemaExplorerComponents, only: [empty_state: 1, schema_panel_content: 1]
+  import Dai.SidebarComponents, only: [folder_panel: 1]
 
   @impl true
   def render(assigns) do
     ~H"""
     <.dai_wrapper host_layout={@dai_host_layout} flash={@flash}>
-      <div class="flex h-full">
-        <.sidebar
-          sidebar_open={@sidebar_open}
-          folders={@folders}
-          active_folder_id={@active_folder_id}
-          folder_queries={@folder_queries}
-        />
-        <div class="flex-1 min-w-0 p-6">
-          <div class="max-w-7xl mx-auto">
-            <div class="flex items-center justify-end mb-2">
-              <button
-                id="schema-toggle"
-                phx-click="toggle_schema_panel"
-                class="btn btn-ghost btn-sm gap-1"
-              >
-                <Icons.table_cells class="size-4" /> Schema
-              </button>
-            </div>
+      <div class="flex h-full" id="dashboard-panels">
+        <%!-- LEFT PANEL: Query input + GridStack card grid --%>
+        <div
+          style={"width: #{@panel_sizes["main_split"]}%"}
+          class="min-w-0 flex flex-col"
+        >
+          <div class="p-6 pb-0 shrink-0">
             <.query_input form={@form} loading={@loading} />
-            <.loading_skeleton :if={@loading} />
-            <.results_grid streams={@streams} folders={@folders} schema_explorer={@schema_explorer} />
+          </div>
+          <.loading_skeleton :if={@loading} />
+          <div class="flex-1 min-h-0 overflow-y-auto px-6 pb-6">
+            <.empty_state schema_explorer={@schema_explorer} />
+            <div
+              id="results-grid"
+              phx-hook="DaiGridStack"
+              data-gs-layout={Jason.encode!(@saved_layouts)}
+              class="grid-stack"
+              phx-update="ignore"
+            >
+            </div>
+          </div>
+        </div>
+
+        <%!-- HORIZONTAL RESIZER --%>
+        <div
+          id="main-resizer"
+          phx-hook="DaiPanelResizer"
+          data-direction="horizontal"
+          data-name="main_split"
+          class="dai-resizer"
+        >
+          <div class="dai-resizer-handle-h"></div>
+        </div>
+
+        <%!-- RIGHT PANEL: Folders + Schema Explorer --%>
+        <div
+          style={"width: #{100 - @panel_sizes["main_split"]}%"}
+          class="min-w-0 flex flex-col border-l border-base-300 bg-base-200/30"
+          id="right-panel"
+        >
+          <%!-- Folders section --%>
+          <div style={"height: #{@panel_sizes["right_split"]}%"} class="min-h-0 flex flex-col">
+            <.folder_panel
+              folders={@folders}
+              active_folder_id={@active_folder_id}
+              folder_queries={@folder_queries}
+            />
+          </div>
+
+          <%!-- VERTICAL RESIZER --%>
+          <div
+            id="right-resizer"
+            phx-hook="DaiPanelResizer"
+            data-direction="vertical"
+            data-name="right_split"
+            class="dai-resizer"
+          >
+            <div class="dai-resizer-handle-v"></div>
+          </div>
+
+          <%!-- Schema Explorer section --%>
+          <div style={"height: #{100 - @panel_sizes["right_split"]}%"} class="min-h-0 flex flex-col">
+            <.schema_panel_content
+              schema_explorer={@schema_explorer}
+              explorer_focus={@explorer_focus}
+              explorer_suggestions={@explorer_suggestions}
+              explorer_loading={@explorer_loading}
+            />
           </div>
         </div>
       </div>
-      <.schema_panel
-        schema_panel_open={@schema_panel_open}
-        schema_explorer={@schema_explorer}
-        explorer_focus={@explorer_focus}
-        explorer_suggestions={@explorer_suggestions}
-        explorer_loading={@explorer_loading}
-      />
     </.dai_wrapper>
     """
   end
@@ -140,30 +179,15 @@ defmodule Dai.DashboardLive do
     """
   end
 
-  attr :streams, :any, required: true
-  attr :folders, :list, default: []
-  attr :schema_explorer, :map, required: true
-
-  defp results_grid(assigns) do
-    ~H"""
-    <div
-      id="results"
-      phx-update="stream"
-      class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4"
-    >
-      <.empty_state schema_explorer={@schema_explorer} />
-      <div :for={{dom_id, result} <- @streams.results} id={dom_id}>
-        <.result_card result={result} folders={@folders} />
-      </div>
-    </div>
-    """
-  end
-
   # --- LiveView callbacks ---
 
   @impl true
   def mount(_params, session, socket) do
     host_layout = Map.get(session, "dai_host_layout", false)
+    user_token = Map.get(session, "dai_user_token", generate_fallback_token())
+
+    prefs = DashboardPreferences.get_preferences(user_token)
+    saved_layouts = DashboardLayout.get_layouts(user_token)
 
     {:ok,
      socket
@@ -174,19 +198,23 @@ defmodule Dai.DashboardLive do
        pending_tasks: %{},
        pending_actions: %{},
        dai_host_layout: host_layout,
-       sidebar_open: false,
+       user_token: user_token,
+       saved_layouts: saved_layouts,
+       panel_sizes: prefs.panel_sizes,
        folders: Folders.list_folders(),
        active_folder_id: nil,
        folder_queries: [],
        schema_explorer: SchemaExplorer.get(),
-       schema_panel_open: false,
        explorer_focus: [],
        explorer_suggestions: [],
        explorer_loading: false,
        explorer_suggestion_ref: nil
      )
-     |> assign(:form, to_form(%{"prompt" => ""}, as: :query))
-     |> stream(:results, [])}
+     |> assign(:form, to_form(%{"prompt" => ""}, as: :query))}
+  end
+
+  defp generate_fallback_token do
+    :crypto.strong_rand_bytes(16) |> Base.encode16(case: :lower)
   end
 
   # --- Query events ---
@@ -203,7 +231,7 @@ defmodule Dai.DashboardLive do
   def handle_event("query", _params, socket), do: {:noreply, socket}
 
   def handle_event("dismiss", %{"id" => id}, socket) do
-    {:noreply, stream_delete_by_dom_id(socket, :results, "results-#{id}")}
+    {:noreply, push_event(socket, "remove_card", %{id: id})}
   end
 
   def handle_event("retry", %{"prompt" => prompt}, socket) do
@@ -220,8 +248,8 @@ defmodule Dai.DashboardLive do
 
         {:noreply,
          socket
-         |> stream_delete_by_dom_id(:results, "results-#{result_id}")
-         |> stream_insert(:results, result_card, at: 0)
+         |> push_event("remove_card", %{id: result_id})
+         |> push_card(result_card)
          |> assign(pending_actions: remaining)}
     end
   end
@@ -235,10 +263,6 @@ defmodule Dai.DashboardLive do
   end
 
   # --- Sidebar events ---
-
-  def handle_event("toggle_sidebar", _params, socket) do
-    {:noreply, assign(socket, sidebar_open: !socket.assigns.sidebar_open)}
-  end
 
   def handle_event("save_query", %{"folder-id" => folder_id, "prompt" => prompt} = params, socket) do
     case Folders.create_saved_query(%{
@@ -259,11 +283,26 @@ defmodule Dai.DashboardLive do
          |> reload_folders()
          |> assign(
            active_folder_id: folder.id,
-           folder_queries: Folders.list_saved_queries(folder.id),
-           sidebar_open: true
+           folder_queries: Folders.list_saved_queries(folder.id)
          )}
 
       {:error, _, _, _} ->
+        {:noreply, socket}
+    end
+  end
+
+  def handle_event("create_folder", %{"name" => name}, socket) when name != "" do
+    case Folders.create_folder(%{
+           name: name,
+           position: length(socket.assigns.folders)
+         }) do
+      {:ok, folder} ->
+        {:noreply,
+         socket
+         |> reload_folders()
+         |> assign(active_folder_id: folder.id, folder_queries: [])}
+
+      {:error, _} ->
         {:noreply, socket}
     end
   end
@@ -290,8 +329,7 @@ defmodule Dai.DashboardLive do
     {:noreply,
      assign(socket,
        active_folder_id: new_active,
-       folder_queries: if(new_active, do: Folders.list_saved_queries(new_active), else: []),
-       sidebar_open: true
+       folder_queries: if(new_active, do: Folders.list_saved_queries(new_active), else: [])
      )}
   end
 
@@ -312,8 +350,7 @@ defmodule Dai.DashboardLive do
      assign(socket,
        pending_tasks: Map.merge(socket.assigns.pending_tasks, pending),
        loading: pending != %{},
-       active_folder_id: folder_id,
-       sidebar_open: true
+       active_folder_id: folder_id
      )}
   end
 
@@ -357,11 +394,20 @@ defmodule Dai.DashboardLive do
     end
   end
 
-  # --- Schema panel events ---
+  # --- Layout events ---
 
-  def handle_event("toggle_schema_panel", _params, socket) do
-    {:noreply, assign(socket, schema_panel_open: !socket.assigns.schema_panel_open)}
+  def handle_event("layout_changed", %{"cards" => cards}, socket) do
+    DashboardLayout.save_layouts(socket.assigns.user_token, cards)
+    {:noreply, socket}
   end
+
+  def handle_event("panel_resized", %{"name" => name, "size" => size}, socket) do
+    panel_sizes = Map.put(socket.assigns.panel_sizes, name, size)
+    DashboardPreferences.save_panel_sizes(socket.assigns.user_token, panel_sizes)
+    {:noreply, assign(socket, panel_sizes: panel_sizes)}
+  end
+
+  # --- Schema panel events ---
 
   def handle_event("select_table", %{"name" => name}, socket) do
     focus = socket.assigns.explorer_focus
@@ -425,7 +471,7 @@ defmodule Dai.DashboardLive do
 
     socket =
       socket
-      |> stream_insert(:results, card, at: 0)
+      |> push_card(card)
       |> assign(loading: false, task_ref: nil)
       |> maybe_store_pending_action(card)
 
@@ -442,7 +488,7 @@ defmodule Dai.DashboardLive do
 
       {:noreply,
        socket
-       |> stream_insert(:results, result_to_card(result, pending[ref]), at: 0)
+       |> push_card(result_to_card(result, pending[ref]))
        |> assign(pending_tasks: remaining, loading: remaining != %{})}
     else
       {:noreply, socket}
@@ -488,6 +534,28 @@ defmodule Dai.DashboardLive do
   defp result_to_card({:error, reason}, prompt) do
     error = Result.error(reason, prompt)
     %{error | layout_key: DashboardLayout.layout_key(prompt)}
+  end
+
+  defp push_card(socket, card) do
+    assigns = %{result: card, folders: socket.assigns.folders}
+
+    html =
+      rendered_to_string(
+        Dai.DashboardComponents.result_card(assigns)
+      )
+
+    push_event(socket, "add_card", %{
+      id: card.id,
+      html: html,
+      layout_key: card.layout_key,
+      card_type: to_string(card.type)
+    })
+  end
+
+  defp rendered_to_string(rendered) do
+    rendered
+    |> Phoenix.HTML.Safe.to_iodata()
+    |> IO.iodata_to_binary()
   end
 
   defp maybe_store_pending_action(socket, %Result{type: :action_confirmation} = result) do
