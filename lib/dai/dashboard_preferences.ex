@@ -4,10 +4,12 @@ defmodule Dai.DashboardPreferences do
   use Ecto.Schema
   import Ecto.Changeset
 
+  @default_panel_sizes %{"main_split" => 75, "right_split" => 50}
+
   @primary_key {:id, :binary_id, autogenerate: true}
   schema "dai_dashboard_preferences" do
     field :user_token, :string
-    field :panel_sizes, :map, default: %{"main_split" => 75, "right_split" => 50}
+    field :panel_sizes, :map, default: @default_panel_sizes
 
     timestamps(type: :utc_datetime)
   end
@@ -24,7 +26,7 @@ defmodule Dai.DashboardPreferences do
   @doc "Get preferences for a user, or return defaults."
   def get_preferences(user_token) do
     case repo().get_by(__MODULE__, user_token: user_token) do
-      nil -> %{panel_sizes: %{"main_split" => 75, "right_split" => 50}}
+      nil -> %{panel_sizes: @default_panel_sizes}
       prefs -> %{panel_sizes: prefs.panel_sizes}
     end
   end
