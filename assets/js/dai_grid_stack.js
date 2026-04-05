@@ -21,7 +21,7 @@ const DaiGridStack = {
       column: 4,
       cellHeight: 120,
       margin: 8,
-      float: true,
+      float: false,
       animate: true,
       draggable: { cancel: ".no-drag" },
       resizable: { handles: "e, se, s" },
