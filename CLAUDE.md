@@ -22,6 +22,7 @@ The library also runs standalone with a SaaS analytics demo dataset for developm
 | Precommit checks (compile warnings + unused deps + format + test) | `mix precommit` |
 | Reset database | `mix ecto.reset` |
 | Show schema context (debug) | `mix gen_schema_context` |
+| Generate migrations (host apps) | `mix dai.gen.migrations` |
 
 `mix precommit` runs in the `:test` env (configured in `cli/preferred_envs`). Always run it before finalizing changes.
 
@@ -42,11 +43,16 @@ All library modules live under the `Dai.*` namespace (not `DaiWeb.*`). The libra
 - `Dai.AI.ResultAssembler` — builds `%Dai.AI.Result{}` structs
 - `Dai.AI.Component` — single source of truth for component types and their limits
 - `Dai.AI.SystemPrompt` — builds the Claude prompt with schema context + rules + examples
-- `Dai.DashboardLive` — main LiveView with async query execution and streaming result grid
+- `Dai.DashboardLive` — main LiveView with two-panel layout, async query execution, GridStack card grid
+- `Dai.GridBridge` — bridges LiveView with GridStack JS hook (push_card, remove_card, layout persistence)
 - `Dai.DashboardComponents` — function components for each card type (KPI, chart, table, error, clarification)
+- `Dai.DashboardLayout` — Ecto schema + context for card grid position persistence
+- `Dai.DashboardPreferences` — Ecto schema + context for panel size persistence
+- `Dai.SidebarComponents` — folder panel component with inline actions (rename, run all, delete)
+- `Dai.SchemaExplorerComponents` — schema explorer panel, table detail, and empty state components
 - `Dai.Icons` — self-contained SVG icon components (no dependency on host's heroicons)
 - `Dai.Layouts` — minimal dashboard layout (nav bar wrapper)
-- `Dai.Router` — `dai_dashboard/2` macro for host app routers
+- `Dai.Router` — `dai_dashboard/2` macro for host app routers (accepts `user_token` for layout persistence)
 
 ### Standalone scaffold (`lib/dai_web/`)
 
@@ -68,13 +74,23 @@ User prompt + SchemaContext.get()
 
 Clarification plans (`needs_clarification: true`) are handled once at the pipeline level, not in individual steps.
 
+### Dashboard layout
+
+Two-panel layout: left panel (query input + GridStack card grid), right panel (folders + schema explorer), separated by resizable dividers.
+
+- **GridStack.js** (v12, ESM) — vendored in `assets/vendor/gridstack/`, handles card drag/resize/snap
+- **GridStack owns grid DOM** — the grid container uses `phx-update="ignore"`. Cards are pushed via `push_event("add_card")`, not LiveView streams. `Dai.GridBridge` renders card HTML server-side and pushes it to the `DaiGridStack` JS hook.
+- **Event delegation** — `phx-click`/`phx-submit` inside the grid won't be bound by LiveView. The `DaiGridStack` hook intercepts clicks and either calls `pushEvent` (server events) or `liveSocket.execJS` (JS commands like toggles).
+- **Layout persistence** — card positions saved to `dai_dashboard_layouts` table, panel sizes to `dai_dashboard_preferences`. Keyed by `user_token` (from host app session or localStorage fallback).
+
 ### Assets
 
 - **Tailwind v4 + DaisyUI 5** — no `tailwind.config.js`; uses `@import "tailwindcss"` syntax in `assets/css/app.css`
 - **DaisyUI themes** — two themes configured in `app.css`: `light` (default) and `dark` (prefers-dark)
-- **Charts** — rendered by `live_charts` hex package (ApexCharts); no custom JS hooks needed
-- **No npm dependencies** — Chart.js was replaced by live_charts which ships pre-built JS via hex
-- **Colocated hooks** — `app.js` imports hooks from `phoenix-colocated/dai` and passes them to `LiveSocket`
+- **Charts** — rendered by `live_charts` hex package (ApexCharts)
+- **GridStack** — ESM modules vendored in `assets/vendor/gridstack/` (not npm)
+- **Custom hooks** — `DaiGridStack` (card grid) and `DaiPanelResizer` (resizable panels) in `assets/js/`, registered alongside colocated hooks in `app.js`
+- **No npm dependencies** — all vendor JS is in `assets/vendor/`
 - **No external script/link tags in templates** — vendor deps must be imported through `assets/js/app.js`
 
 ### Environment
@@ -120,7 +136,7 @@ Use `type(scope): title` format:
 ### Elixir/Phoenix conventions
 
 - Use `Req` for HTTP requests — never `:httpoison`, `:tesla`, or `:httpc`
-- LiveView streams for all collections (never regular list assigns)
+- LiveView streams for collections — except GridStack cards which use `push_event` + `phx-update="ignore"` (GridStack owns the DOM)
 - Avoid LiveComponents unless there's a strong specific need
 - `{...}` for HEEx attribute interpolation; `<%= ... %>` only for block constructs in tag bodies
 - Class lists must use `[...]` syntax: `class={["px-2", @flag && "py-5"]}`
