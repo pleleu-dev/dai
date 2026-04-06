@@ -56,13 +56,24 @@ const DaiGridStack = {
 
     // Event delegation: phx-click/phx-submit inside phx-update="ignore"
     // won't be bound by LiveView, so we handle them here.
+    // JS commands (phx-click values starting with "[") are executed client-side
+    // via liveSocket; only plain event names are pushed to the server.
     this.el.addEventListener("click", (e) => {
       const target = e.target.closest("[phx-click]")
       if (!target) return
       if (target.disabled || target.getAttribute("disabled") !== null) return
+
+      const event = target.getAttribute("phx-click")
+
+      // JS command (e.g. toggle/show/hide) — execute client-side via LiveView
+      if (event.startsWith("[")) {
+        window.liveSocket.execJS(target, event)
+        return
+      }
+
+      // Server event — push to LiveView
       e.preventDefault()
       e.stopPropagation()
-      const event = target.getAttribute("phx-click")
       const values = {}
       for (const attr of target.attributes) {
         if (attr.name.startsWith("phx-value-")) {
