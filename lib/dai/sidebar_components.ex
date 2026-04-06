@@ -105,46 +105,32 @@ defmodule Dai.SidebarComponents do
             />
           </form>
 
-          <%!-- Action menu trigger (hidden during rename) --%>
-          <div id={"folder-actions-#{folder.id}"} class="relative">
+          <%!-- Inline actions (visible on hover) --%>
+          <div id={"folder-actions-#{folder.id}"} class="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
             <button
-              phx-click={toggle_dropdown("folder-menu-#{folder.id}")}
-              class="opacity-0 group-hover:opacity-60 hover:!opacity-100 transition-opacity p-0.5 rounded hover:bg-base-300/50"
-              aria-label="Folder actions"
+              phx-click={start_rename(folder.id)}
+              class="p-0.5 rounded text-base-content/40 hover:text-base-content/80 hover:bg-base-300/50"
+              aria-label="Rename folder"
+              title="Rename"
             >
-              <Icons.ellipsis_vertical class="size-3.5" />
+              <Icons.pencil class="size-3" />
             </button>
-            <%!-- Dropdown menu --%>
-            <ul
-              id={"folder-menu-#{folder.id}"}
-              class="hidden absolute right-0 top-6 z-30 menu menu-xs bg-base-100 border border-base-300 rounded-box w-36 p-1 shadow-sm"
-              phx-click-away={hide_dropdown("folder-menu-#{folder.id}")}
+            <button
+              phx-click={JS.push("load_all_folder_queries", value: %{id: folder.id})}
+              class="p-0.5 rounded text-base-content/40 hover:text-primary hover:bg-primary/10"
+              aria-label="Run all queries"
+              title="Run all"
             >
-              <li>
-                <button phx-click={start_rename(folder.id)}>
-                  <Icons.pencil class="size-3" /> Rename
-                </button>
-              </li>
-              <li>
-                <button phx-click={
-                  JS.push("load_all_folder_queries", value: %{id: folder.id})
-                  |> hide_dropdown("folder-menu-#{folder.id}")
-                }>
-                  <Icons.play class="size-3" /> Run all queries
-                </button>
-              </li>
-              <li class="border-t border-base-300 mt-1 pt-1">
-                <button
-                  class="text-error"
-                  phx-click={
-                    JS.push("delete_folder", value: %{id: folder.id})
-                    |> hide_dropdown("folder-menu-#{folder.id}")
-                  }
-                >
-                  <Icons.trash class="size-3" /> Delete
-                </button>
-              </li>
-            </ul>
+              <Icons.play class="size-3" />
+            </button>
+            <button
+              phx-click={JS.push("delete_folder", value: %{id: folder.id})}
+              class="p-0.5 rounded text-base-content/40 hover:text-error hover:bg-error/10"
+              aria-label="Delete folder"
+              title="Delete"
+            >
+              <Icons.trash class="size-3" />
+            </button>
           </div>
         </div>
         <.folder_query_list
