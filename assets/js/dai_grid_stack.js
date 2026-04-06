@@ -59,6 +59,7 @@ const DaiGridStack = {
     this.el.addEventListener("click", (e) => {
       const target = e.target.closest("[phx-click]")
       if (!target) return
+      if (target.disabled || target.getAttribute("disabled") !== null) return
       e.preventDefault()
       e.stopPropagation()
       const event = target.getAttribute("phx-click")
@@ -78,6 +79,7 @@ const DaiGridStack = {
       const event = form.getAttribute("phx-submit")
       const formData = new FormData(form)
       this.pushEvent(event, Object.fromEntries(formData))
+      form.reset()
     })
 
     // Hide empty state when cards exist
