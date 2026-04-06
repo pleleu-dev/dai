@@ -1,5 +1,4 @@
-import gridstack from "../vendor/gridstack"
-const GridStack = gridstack.GridStack || gridstack
+import { GridStack } from "../vendor/gridstack/gridstack.js"
 
 // Using 12-column grid (GridStack default, has built-in CSS)
 // Scale: 3 cols = 1/4, 6 cols = 1/2, 9 cols = 3/4, 12 cols = full
