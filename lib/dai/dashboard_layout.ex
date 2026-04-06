@@ -22,6 +22,7 @@ defmodule Dai.DashboardLayout do
     layout
     |> cast(attrs, [:user_token, :layout_key, :x, :y, :w, :h])
     |> validate_required([:user_token, :layout_key, :w, :h])
+    |> unique_constraint([:user_token, :layout_key])
   end
 
   defp repo, do: Dai.Config.repo()

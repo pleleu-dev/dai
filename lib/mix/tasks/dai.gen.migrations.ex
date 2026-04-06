@@ -16,12 +16,7 @@ defmodule Mix.Tasks.Dai.Gen.Migrations do
 
   import Mix.Generator
 
-  @migrations [
-    {"create_dai_folders", "create_dai_folders"},
-    {"create_dai_saved_queries", "create_dai_saved_queries"},
-    {"create_dai_dashboard_layouts", "create_dai_dashboard_layouts"},
-    {"create_dai_dashboard_preferences", "create_dai_dashboard_preferences"}
-  ]
+  @migrations ~w(create_dai_folders create_dai_saved_queries create_dai_dashboard_layouts create_dai_dashboard_preferences)
 
   @impl true
   def run(_args) do
@@ -30,22 +25,21 @@ defmodule Mix.Tasks.Dai.Gen.Migrations do
 
     existing = File.ls!(migrations_path)
 
-    for {name, template} <- @migrations do
+    for {name, index} <- Enum.with_index(@migrations) do
       if Enum.any?(existing, &String.contains?(&1, name)) do
         Mix.shell().info("Migration #{name} already exists, skipping.")
       else
-        timestamp = generate_timestamp()
+        timestamp = generate_timestamp(index)
         filename = "#{timestamp}_#{name}.exs"
         path = Path.join(migrations_path, filename)
-        content = migration_content(template)
-        create_file(path, content)
-        Process.sleep(1000)
+        create_file(path, migration_content(name))
       end
     end
   end
 
-  defp generate_timestamp do
+  defp generate_timestamp(offset) do
     {{y, m, d}, {hh, mm, ss}} = :calendar.universal_time()
+    ss = min(ss + offset, 59)
     "#{y}#{pad(m)}#{pad(d)}#{pad(hh)}#{pad(mm)}#{pad(ss)}"
   end
 

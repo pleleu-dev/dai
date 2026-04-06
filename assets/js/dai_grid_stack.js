@@ -137,8 +137,6 @@ const DaiGridStack = {
     }
   },
 
-  updated() {},
-
   destroyed() {
     if (this.grid) this.grid.destroy(false)
     clearTimeout(this.debounceTimer)

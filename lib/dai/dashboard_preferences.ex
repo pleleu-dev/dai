@@ -19,6 +19,7 @@ defmodule Dai.DashboardPreferences do
     prefs
     |> cast(attrs, [:user_token, :panel_sizes])
     |> validate_required([:user_token])
+    |> unique_constraint(:user_token)
   end
 
   defp repo, do: Dai.Config.repo()
