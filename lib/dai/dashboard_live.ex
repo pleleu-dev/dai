@@ -2,7 +2,7 @@ defmodule Dai.DashboardLive do
   use Phoenix.LiveView
 
   alias Dai.AI.{ActionExecutor, ActionRegistry, QueryPipeline, Result, ResultAssembler}
-  alias Dai.{DashboardLayout, DashboardPreferences, Folders, Icons, SchemaContext, SchemaExplorer}
+  alias Dai.{DashboardLayout, DashboardPreferences, Folders, GridBridge, Icons, SchemaContext, SchemaExplorer}
 
   import Dai.SchemaExplorerComponents, only: [empty_state: 1, schema_panel_content: 1]
   import Dai.SidebarComponents, only: [folder_panel: 1]
@@ -245,7 +245,7 @@ defmodule Dai.DashboardLive do
   def handle_event("query", _params, socket), do: {:noreply, socket}
 
   def handle_event("dismiss", %{"id" => id}, socket) do
-    {:noreply, push_event(socket, "remove_card", %{id: id})}
+    {:noreply, GridBridge.remove_card(socket, id)}
   end
 
   def handle_event("retry", %{"prompt" => prompt}, socket) do
@@ -262,8 +262,8 @@ defmodule Dai.DashboardLive do
 
         {:noreply,
          socket
-         |> push_event("remove_card", %{id: result_id})
-         |> push_card(result_card)
+         |> GridBridge.remove_card(result_id)
+         |> GridBridge.push_card(result_card)
          |> assign(pending_actions: remaining)}
     end
   end
@@ -395,14 +395,11 @@ defmodule Dai.DashboardLive do
   # --- Layout events ---
 
   def handle_event("layout_changed", %{"cards" => cards}, socket) do
-    DashboardLayout.save_layouts(socket.assigns.user_token, cards)
-    {:noreply, socket}
+    {:noreply, GridBridge.save_layouts(socket, cards)}
   end
 
   def handle_event("panel_resized", %{"name" => name, "size" => size}, socket) do
-    panel_sizes = Map.put(socket.assigns.panel_sizes, name, size)
-    DashboardPreferences.save_panel_sizes(socket.assigns.user_token, panel_sizes)
-    {:noreply, assign(socket, panel_sizes: panel_sizes)}
+    {:noreply, GridBridge.save_panel_sizes(socket, name, size)}
   end
 
   # --- Schema panel events ---
@@ -465,11 +462,11 @@ defmodule Dai.DashboardLive do
   # Single query result (from run_query)
   def handle_info({ref, result}, socket) when socket.assigns.task_ref == ref do
     Process.demonitor(ref, [:flush])
-    card = result_to_card(result, socket.assigns.current_prompt)
+    card = GridBridge.result_to_card(result, socket.assigns.current_prompt)
 
     socket =
       socket
-      |> push_card(card)
+      |> GridBridge.push_card(card)
       |> assign(loading: false, task_ref: nil)
       |> maybe_store_pending_action(card)
 
@@ -486,7 +483,7 @@ defmodule Dai.DashboardLive do
 
       {:noreply,
        socket
-       |> push_card(result_to_card(result, pending[ref]))
+       |> GridBridge.push_card(GridBridge.result_to_card(result, pending[ref]))
        |> assign(pending_tasks: remaining, loading: remaining != %{})}
     else
       {:noreply, socket}
@@ -523,35 +520,6 @@ defmodule Dai.DashboardLive do
        task_ref: task.ref,
        form: to_form(%{"prompt" => ""}, as: :query)
      )}
-  end
-
-  defp result_to_card({:ok, result}, _prompt) do
-    %{result | layout_key: DashboardLayout.layout_key(result.prompt)}
-  end
-
-  defp result_to_card({:error, reason}, prompt) do
-    error = Result.error(reason, prompt)
-    %{error | layout_key: DashboardLayout.layout_key(prompt)}
-  end
-
-  defp push_card(socket, card) do
-    assigns = %{result: card, folders: socket.assigns.folders}
-
-    html =
-      rendered_to_string(Dai.DashboardComponents.result_card(assigns))
-
-    push_event(socket, "add_card", %{
-      id: card.id,
-      html: html,
-      layout_key: card.layout_key,
-      card_type: to_string(card.type)
-    })
-  end
-
-  defp rendered_to_string(rendered) do
-    rendered
-    |> Phoenix.HTML.Safe.to_iodata()
-    |> IO.iodata_to_binary()
   end
 
   defp maybe_store_pending_action(socket, %Result{type: :action_confirmation} = result) do
