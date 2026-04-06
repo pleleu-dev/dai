@@ -99,8 +99,6 @@ const DaiGridStack = {
     opts.content = ""
 
     const widget = this.grid.addWidget(opts)
-    // Force GridStack to regenerate its height stylesheet via public API
-    this.grid.cellHeight(this.grid.getCellHeight())
 
     if (widget) {
       widget.dataset.layoutKey = layoutKey
