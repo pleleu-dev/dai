@@ -62,7 +62,7 @@ defmodule Dai.SidebarComponents do
         No folders yet
       </div>
       <div :for={folder <- @folders} class="mb-1">
-        <%!-- Folder row: click to open, ... menu for actions --%>
+        <%!-- Folder row: click to open, inline actions on hover --%>
         <div class={[
           "flex items-center gap-1 px-2 py-1.5 rounded-md text-sm group transition-colors",
           folder.id == @active_folder_id && "bg-primary/10 text-primary",
@@ -161,7 +161,7 @@ defmodule Dai.SidebarComponents do
           class="flex-1 min-w-0 text-left"
         >
           <span class="text-xs text-base-content/50 hover:text-base-content/80 truncate block">
-            {query.title}
+            {query.title || query.prompt}
           </span>
         </button>
         <button
@@ -253,8 +253,7 @@ defmodule Dai.SidebarComponents do
   end
 
   defp start_rename(folder_id) do
-    JS.hide(to: "#folder-menu-#{folder_id}")
-    |> JS.hide(to: "#folder-row-#{folder_id}")
+    JS.hide(to: "#folder-row-#{folder_id}")
     |> JS.hide(to: "#folder-actions-#{folder_id}")
     |> JS.show(to: "#folder-rename-#{folder_id}")
     |> JS.focus(to: "#folder-rename-input-#{folder_id}")

@@ -106,8 +106,6 @@ const DaiGridStack = {
       ? { x: saved.x, y: saved.y, w: saved.w, h: saved.h }
       : { w: defaults.w, h: defaults.h, autoPosition: true }
 
-    // v11 API: addWidget(opts) creates the widget with proper structure.
-    // We wrap in batchUpdate to ensure styles are generated after.
     opts.id = id
     opts.content = ""
 
