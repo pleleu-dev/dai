@@ -47,4 +47,9 @@ defmodule Dai.Config do
   def actions do
     Application.get_env(:dai, :actions, [])
   end
+
+  @spec query_scope() :: map() | nil
+  def query_scope do
+    Application.get_env(:dai, :query_scope)
+  end
 end

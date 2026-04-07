@@ -3,10 +3,12 @@ defmodule Dai.AI.Client do
 
   @api_url "https://api.anthropic.com/v1/messages"
 
-  def generate_plan(prompt, schema_context) do
+  def generate_plan(prompt, schema_context, opts \\ []) do
+    scope = Keyword.get(opts, :scope)
+
     send_messages(
       [%{role: "user", content: prompt}],
-      system: Dai.AI.SystemPrompt.build(schema_context)
+      system: Dai.AI.SystemPrompt.build(schema_context, scope: scope)
     )
   end
 

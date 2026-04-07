@@ -3,7 +3,8 @@ defmodule Dai.AI.SystemPrompt do
 
   alias Dai.AI.ActionRegistry
 
-  def build(schema_context) do
+  def build(schema_context, opts \\ []) do
+    scope = Keyword.get(opts, :scope)
     base_prompt = """
     You are a SQL query generator for a PostgreSQL database. You must respond with ONLY a valid JSON object. No markdown fences, no explanation, no text before or after the JSON. Read-only SELECT queries only.
 
@@ -61,12 +62,27 @@ defmodule Dai.AI.SystemPrompt do
     {"title": "Recent Items", "description": "Most recent items", "sql": "SELECT <col1>, <col2>, <col3> FROM <table> ORDER BY <date_col> DESC LIMIT 500", "component": "data_table", "config": {"columns": ["<col1>", "<col2>", "<col3>"]}}
     """
 
-    actions_section = ActionRegistry.prompt_section()
+    prompt = base_prompt
 
-    if actions_section == "" do
-      base_prompt
-    else
-      base_prompt <> "\n" <> actions_section
-    end
+    actions_section = ActionRegistry.prompt_section()
+    prompt = if actions_section == "", do: prompt, else: prompt <> "\n" <> actions_section
+
+    prompt = if scope, do: prompt <> "\n" <> scope_section(scope), else: prompt
+
+    prompt
+  end
+
+  defp scope_section(%{column: column, table: table, value: value} = scope) do
+    description = Map.get(scope, :description, "")
+
+    """
+
+    ## CRITICAL SCOPING RULE
+
+    Every SQL query you generate MUST include a filter on #{table}.#{column} = '#{value}'.
+    For tables that do not have #{column} directly, you MUST JOIN through the #{table} table to enforce this filter.
+    Never return data that is not scoped to this value. This is a hard security requirement.
+    #{if description != "", do: "\nContext: #{description}", else: ""}
+    """
   end
 end

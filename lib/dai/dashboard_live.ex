@@ -200,6 +200,7 @@ defmodule Dai.DashboardLive do
         get_connect_params(socket)["dai_user_token"] ||
         generate_fallback_token()
 
+    scope = build_scope(session)
     prefs = DashboardPreferences.get_preferences(user_token)
     saved_layouts = DashboardLayout.get_layouts(user_token)
 
@@ -213,6 +214,7 @@ defmodule Dai.DashboardLive do
        pending_actions: %{},
        dai_host_layout: host_layout,
        user_token: user_token,
+       scope: scope,
        saved_layouts: saved_layouts,
        panel_sizes: prefs.panel_sizes,
        folders: Folders.list_folders(),
@@ -340,7 +342,8 @@ defmodule Dai.DashboardLive do
 
     pending =
       Map.new(queries, fn query ->
-        task = Task.async(fn -> QueryPipeline.run(query.prompt, SchemaContext.get()) end)
+        scope = socket.assigns.scope
+        task = Task.async(fn -> QueryPipeline.run(query.prompt, SchemaContext.get(), scope: scope) end)
         {task.ref, query.prompt}
       end)
 
@@ -511,7 +514,10 @@ defmodule Dai.DashboardLive do
   # --- Private helpers ---
 
   defp run_query(prompt, socket) do
-    task = Task.async(fn -> QueryPipeline.run(prompt, SchemaContext.get()) end)
+    scope = socket.assigns.scope
+
+    task =
+      Task.async(fn -> QueryPipeline.run(prompt, SchemaContext.get(), scope: scope) end)
 
     {:noreply,
      assign(socket,
@@ -553,6 +559,14 @@ defmodule Dai.DashboardLive do
     case socket.assigns.active_folder_id do
       nil -> socket
       id -> assign(socket, folder_queries: Folders.list_saved_queries(id))
+    end
+  end
+
+  defp build_scope(session) do
+    case {Dai.Config.query_scope(), Map.get(session, "dai_scope_value")} do
+      {nil, _} -> nil
+      {_config, nil} -> nil
+      {config, value} -> Map.put(config, :value, value)
     end
   end
 end

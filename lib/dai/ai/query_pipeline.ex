@@ -3,8 +3,10 @@ defmodule Dai.AI.QueryPipeline do
 
   alias Dai.AI.{Client, PlanValidator, SqlExecutor, ResultAssembler}
 
-  def run(prompt, schema_context) do
-    with {:ok, plan} <- Client.generate_plan(prompt, schema_context) do
+  def run(prompt, schema_context, opts \\ []) do
+    scope = Keyword.get(opts, :scope)
+
+    with {:ok, plan} <- Client.generate_plan(prompt, schema_context, scope: scope) do
       run_from_plan(plan, prompt)
     end
   end

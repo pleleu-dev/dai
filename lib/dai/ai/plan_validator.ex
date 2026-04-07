@@ -1,6 +1,8 @@
 defmodule Dai.AI.PlanValidator do
   @moduledoc "Validates the plan returned by the Claude API."
 
+  require Logger
+
   alias Dai.AI.{ActionRegistry, Component}
 
   @forbidden_pattern ~r/\b(insert|update|delete|drop|truncate|alter|create|grant|revoke|exec|execute)\b/i
@@ -8,6 +10,7 @@ defmodule Dai.AI.PlanValidator do
   def validate(%{"type" => "action", "sql" => sql, "action_id" => action_id} = plan) do
     with :ok <- check_forbidden_keywords(sql),
          :ok <- check_action(action_id) do
+      warn_if_missing_scope(sql)
       {:ok, plan}
     end
   end
@@ -15,7 +18,9 @@ defmodule Dai.AI.PlanValidator do
   def validate(%{"sql" => sql, "component" => component} = plan) do
     with :ok <- check_forbidden_keywords(sql),
          :ok <- check_component(component) do
-      {:ok, ensure_limit(plan)}
+      validated = ensure_limit(plan)
+      warn_if_missing_scope(validated["sql"])
+      {:ok, validated}
     end
   end
 
@@ -37,6 +42,18 @@ defmodule Dai.AI.PlanValidator do
     case ActionRegistry.lookup(action_id) do
       {:ok, _module} -> :ok
       :error -> {:error, :invalid_action}
+    end
+  end
+
+  defp warn_if_missing_scope(sql) do
+    case Dai.Config.query_scope() do
+      %{column: column} ->
+        unless String.contains?(sql, column) do
+          Logger.warning("Dai query missing scope column: #{column}")
+        end
+
+      _ ->
+        :ok
     end
   end
 

@@ -29,53 +29,53 @@ defmodule Dai.Router do
     layout_ast = Keyword.get(opts, :layout)
     on_mount_ast = Keyword.get(opts, :on_mount, [])
     user_token_getter = Keyword.get(opts, :user_token)
-    live_opts_ast = Keyword.drop(opts, [:layout, :on_mount, :user_token])
+    scope_value_getter = Keyword.get(opts, :scope_value)
+    live_opts_ast = Keyword.drop(opts, [:layout, :on_mount, :user_token, :scope_value])
 
     has_layout = layout_ast != nil
 
-    # Build session_opts as a keyword list of AST pairs for use in quote.
-    # The :session map is a plain Elixir term so it needs Macro.escape/1.
-    # The :layout and :on_mount values are already AST and unquote correctly.
+    # Build live_session options: layout, on_mount, session map.
+    # Session values with runtime getters (user_token, scope_value) use quote/unquote
+    # so they're evaluated at request time, not compile time.
     session_pairs =
       []
       |> then(fn acc ->
-        if has_layout do
-          [{:layout, layout_ast} | acc]
-        else
-          acc
-        end
+        if has_layout, do: [{:layout, layout_ast} | acc], else: acc
       end)
       |> then(fn acc ->
-        case on_mount_ast do
-          [] -> acc
-          _ -> [{:on_mount, on_mount_ast} | acc]
-        end
+        if on_mount_ast == [], do: acc, else: [{:on_mount, on_mount_ast} | acc]
       end)
       |> then(fn acc ->
-        has_user_token = user_token_getter != nil
+        # Build session map with all configured keys
+        static_keys = if has_layout, do: [{"dai_host_layout", true}], else: []
 
-        cond do
-          has_layout and has_user_token ->
-            session_ast =
-              quote do
-                %{"dai_host_layout" => true, "dai_user_token" => unquote(user_token_getter)}
-              end
+        runtime_keys =
+          [
+            {"dai_user_token", user_token_getter},
+            {"dai_scope_value", scope_value_getter}
+          ]
+          |> Enum.reject(fn {_k, v} -> is_nil(v) end)
 
-            [{:session, session_ast} | acc]
-
-          has_layout ->
-            [{:session, Macro.escape(%{"dai_host_layout" => true})} | acc]
-
-          has_user_token ->
-            session_ast =
-              quote do
-                %{"dai_user_token" => unquote(user_token_getter)}
-              end
-
-            [{:session, session_ast} | acc]
-
-          true ->
+        case {static_keys, runtime_keys} do
+          {[], []} ->
             acc
+
+          {static, []} ->
+            [{:session, Macro.escape(Map.new(static))} | acc]
+
+          {static, _runtime} ->
+            # Mix static and runtime values in a quoted map
+            static_map = Map.new(static)
+
+            session_ast =
+              quote do
+                Map.merge(
+                  unquote(Macro.escape(static_map)),
+                  unquote(Map.new(runtime_keys))
+                )
+              end
+
+            [{:session, session_ast} | acc]
         end
       end)
 
