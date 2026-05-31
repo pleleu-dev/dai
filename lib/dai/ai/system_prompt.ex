@@ -5,6 +5,7 @@ defmodule Dai.AI.SystemPrompt do
 
   def build(schema_context, opts \\ []) do
     scope = Keyword.get(opts, :scope)
+
     base_prompt = """
     You are a SQL query generator for a PostgreSQL database. You must respond with ONLY a valid JSON object. No markdown fences, no explanation, no text before or after the JSON. Read-only SELECT queries only.
 

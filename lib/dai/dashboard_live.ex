@@ -2,7 +2,16 @@ defmodule Dai.DashboardLive do
   use Phoenix.LiveView
 
   alias Dai.AI.{ActionExecutor, ActionRegistry, QueryPipeline, Result, ResultAssembler}
-  alias Dai.{DashboardLayout, DashboardPreferences, Folders, GridBridge, Icons, SchemaContext, SchemaExplorer}
+
+  alias Dai.{
+    DashboardLayout,
+    DashboardPreferences,
+    Folders,
+    GridBridge,
+    Icons,
+    SchemaContext,
+    SchemaExplorer
+  }
 
   import Dai.SchemaExplorerComponents, only: [empty_state: 1, schema_panel_content: 1]
   import Dai.SidebarComponents, only: [folder_panel: 1]
@@ -343,7 +352,10 @@ defmodule Dai.DashboardLive do
     pending =
       Map.new(queries, fn query ->
         scope = socket.assigns.scope
-        task = Task.async(fn -> QueryPipeline.run(query.prompt, SchemaContext.get(), scope: scope) end)
+
+        task =
+          Task.async(fn -> QueryPipeline.run(query.prompt, SchemaContext.get(), scope: scope) end)
+
         {task.ref, query.prompt}
       end)
 
