@@ -149,7 +149,7 @@ defmodule Dai.SchemaExplorerComponents do
         <Icons.table_cells class="size-4 text-base-content/60" />
         <span class="text-sm font-semibold">Schema Explorer</span>
       </div>
-      <div class="flex-1 overflow-y-auto px-2 py-1">
+      <div class="flex-1 min-h-0 overflow-y-auto px-2 py-1">
         <%= if @explorer_focus == [] do %>
           <.panel_table_list schema_explorer={@schema_explorer} />
         <% else %>

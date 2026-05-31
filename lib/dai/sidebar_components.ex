@@ -40,7 +40,7 @@ defmodule Dai.SidebarComponents do
           <button type="submit" class="btn btn-primary btn-xs">Add</button>
         </form>
       </div>
-      <div class="flex-1 overflow-y-auto px-2 py-1">
+      <div class="flex-1 min-h-0 overflow-y-auto px-2 py-1">
         <.expanded_folder_list
           folders={@folders}
           active_folder_id={@active_folder_id}
@@ -57,7 +57,7 @@ defmodule Dai.SidebarComponents do
 
   defp expanded_folder_list(assigns) do
     ~H"""
-    <div class="flex-1 overflow-y-auto p-2">
+    <div class="p-2">
       <div :if={@folders == []} class="text-xs text-base-content/30 text-center py-4">
         No folders yet
       </div>
@@ -106,7 +106,10 @@ defmodule Dai.SidebarComponents do
           </form>
 
           <%!-- Inline actions (visible on hover) --%>
-          <div id={"folder-actions-#{folder.id}"} class="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+          <div
+            id={"folder-actions-#{folder.id}"}
+            class="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
+          >
             <button
               phx-click={start_rename(folder.id)}
               class="p-0.5 rounded text-base-content/40 hover:text-base-content/80 hover:bg-base-300/50"
