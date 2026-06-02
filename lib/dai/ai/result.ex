@@ -4,11 +4,7 @@ defmodule Dai.AI.Result do
   @type t :: %__MODULE__{
           id: String.t(),
           type:
-            :kpi_metric
-            | :bar_chart
-            | :line_chart
-            | :pie_chart
-            | :data_table
+            Dai.AI.Component.component_type()
             | :clarification
             | :error
             | :action_confirmation
@@ -73,7 +69,16 @@ defmodule Dai.AI.Result do
 
   defp error_message(:invalid_component), do: "The AI suggested an unknown visualization type."
   defp error_message(:invalid_action), do: "The AI suggested an unknown action."
-  defp error_message({:query_failed, detail}), do: "The database query failed: #{detail}"
+
+  defp error_message(:scope_violation),
+    do: "This query was blocked because it wasn't scoped to your data."
+
+  # Never interpolate the raw Postgres detail into client-facing text — it can
+  # leak table/column names and schema structure. The real detail is logged at
+  # the `Dai.AI.SqlExecutor` boundary; users get a generic, actionable message.
+  defp error_message({:query_failed, _detail}),
+    do: "The database query failed. Please rephrase your question."
+
   defp error_message(reason) when is_binary(reason), do: reason
   defp error_message(reason), do: "An unexpected error occurred: #{inspect(reason)}"
 end

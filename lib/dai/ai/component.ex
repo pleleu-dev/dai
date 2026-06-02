@@ -1,6 +1,9 @@
 defmodule Dai.AI.Component do
   @moduledoc "Canonical definition of visualization component types."
 
+  @typedoc "The canonical set of visualization component atoms."
+  @type component_type :: :kpi_metric | :bar_chart | :line_chart | :pie_chart | :data_table
+
   @types %{
     "kpi_metric" => %{atom: :kpi_metric, chart?: false, default_limit: 50},
     "bar_chart" => %{atom: :bar_chart, chart?: true, default_limit: 50},

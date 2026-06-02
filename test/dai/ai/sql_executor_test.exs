@@ -1,6 +1,8 @@
 defmodule Dai.AI.SqlExecutorTest do
   use Dai.DataCase, async: true
 
+  import ExUnit.CaptureLog
+
   alias Dai.AI.SqlExecutor
 
   describe "execute/1" do
@@ -32,8 +34,32 @@ defmodule Dai.AI.SqlExecutorTest do
 
     test "returns error for invalid SQL" do
       plan = %{"sql" => "SELECT * FROM nonexistent_table_xyz"}
-      assert {:error, {:query_failed, message}} = SqlExecutor.execute(plan)
-      assert is_binary(message)
+
+      capture_log(fn ->
+        assert {:error, {:query_failed, message}} = SqlExecutor.execute(plan)
+        assert is_binary(message)
+      end)
+    end
+
+    test "rejects a write statement inside the read-only transaction" do
+      plan = %{"sql" => "UPDATE plans SET name = 'hacked'"}
+
+      capture_log(fn ->
+        assert {:error, {:query_failed, message}} = SqlExecutor.execute(plan)
+        assert message =~ "read-only transaction"
+      end)
+    end
+
+    test "leaves the connection usable after a blocked write" do
+      capture_log(fn ->
+        assert {:error, {:query_failed, _}} =
+                 SqlExecutor.execute(%{"sql" => "UPDATE plans SET name = 'hacked'"})
+      end)
+
+      # A subsequent read must still succeed — the failed write rolled back its
+      # own transaction without poisoning the sandbox connection.
+      assert {:ok, result} = SqlExecutor.execute(%{"sql" => "SELECT 1 AS num"})
+      assert result.rows == [%{"num" => 1}]
     end
   end
 end

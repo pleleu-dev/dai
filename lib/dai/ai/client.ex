@@ -1,8 +1,11 @@
 defmodule Dai.AI.Client do
   @moduledoc "Sends prompts to the Claude API via Req and parses JSON responses."
 
+  @behaviour Dai.AI.ClientBehaviour
+
   @api_url "https://api.anthropic.com/v1/messages"
 
+  @impl true
   def generate_plan(prompt, schema_context, opts \\ []) do
     scope = Keyword.get(opts, :scope)
 
