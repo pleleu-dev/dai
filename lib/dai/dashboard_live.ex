@@ -1,4 +1,24 @@
 defmodule Dai.DashboardLive do
+  @moduledoc """
+  Main dashboard LiveView.
+
+  ## Identity & trust model
+
+  Every socket carries a `user_token` that scopes folders, saved queries, and
+  layout persistence to one tenant. It is resolved in this order:
+
+    1. `session["dai_user_token"]` — the **trusted** source. Hosts wire it via
+       `dai_dashboard "/path", user_token: &MyAuth.user_token/1`, deriving the
+       value from their authenticated, signed session. This is the only source
+       safe for multi-tenant deployments.
+    2. `connect_params["dai_user_token"]` — a client-supplied localStorage
+       fallback for single-tenant / anonymous use. It is **not** authenticated
+       and must never be relied on for isolation between distinct users.
+    3. A random token — when neither is present, the session is ephemeral.
+
+  Hosts that need tenant isolation MUST provide the session token (see the
+  README "Security" section) and should add `on_mount` auth hooks via the router.
+  """
   use Phoenix.LiveView
 
   alias Dai.AI.{ActionExecutor, ActionRegistry, QueryPipeline, Result, ResultAssembler}
@@ -9,12 +29,15 @@ defmodule Dai.DashboardLive do
     Folders,
     GridBridge,
     Icons,
+    RateLimiter,
     SchemaContext,
     SchemaExplorer
   }
 
   import Dai.SchemaExplorerComponents, only: [empty_state: 1, schema_panel_content: 1]
   import Dai.SidebarComponents, only: [folder_panel: 1]
+
+  @rate_limit_message "You're sending queries too quickly. Please wait a moment and try again."
 
   @impl true
   def render(assigns) do
@@ -28,7 +51,7 @@ defmodule Dai.DashboardLive do
           data-panel="main_split-first"
         >
           <div class="p-6 pb-0 shrink-0">
-            <.query_input form={@form} loading={@loading} />
+            <.query_input form={@form} loading={@loading} error={@query_error} />
           </div>
           <.loading_skeleton :if={@loading} />
           <div class="flex-1 min-h-0 overflow-y-auto px-6 pb-6">
@@ -128,6 +151,7 @@ defmodule Dai.DashboardLive do
 
   attr :form, :any, required: true
   attr :loading, :boolean, required: true
+  attr :error, :string, default: nil
 
   defp query_input(assigns) do
     ~H"""
@@ -182,6 +206,15 @@ defmodule Dai.DashboardLive do
           </button>
         </div>
       </.form>
+
+      <p
+        :if={@error}
+        id="query-error"
+        role="alert"
+        class="mt-2 px-2 text-sm text-error"
+      >
+        {@error}
+      </p>
     </div>
     """
   end
@@ -203,12 +236,7 @@ defmodule Dai.DashboardLive do
   @impl true
   def mount(_params, session, socket) do
     host_layout = Map.get(session, "dai_host_layout", false)
-
-    user_token =
-      Map.get(session, "dai_user_token") ||
-        get_connect_params(socket)["dai_user_token"] ||
-        generate_fallback_token()
-
+    user_token = resolve_user_token(session, socket)
     scope = build_scope(session)
     prefs = DashboardPreferences.get_preferences(user_token)
     saved_layouts = DashboardLayout.get_layouts(user_token)
@@ -218,6 +246,8 @@ defmodule Dai.DashboardLive do
      |> assign(
        loading: false,
        current_prompt: nil,
+       query_error: nil,
+       rate_bucket: init_rate_bucket(),
        task_ref: nil,
        pending_tasks: %{},
        pending_actions: %{},
@@ -226,7 +256,7 @@ defmodule Dai.DashboardLive do
        scope: scope,
        saved_layouts: saved_layouts,
        panel_sizes: prefs.panel_sizes,
-       folders: Folders.list_folders(),
+       folders: Folders.list_folders(user_token),
        active_folder_id: nil,
        folder_queries: [],
        schema_explorer: SchemaExplorer.get(),
@@ -236,6 +266,15 @@ defmodule Dai.DashboardLive do
        explorer_suggestion_ref: nil
      )
      |> assign(:form, to_form(%{"prompt" => ""}, as: :query))}
+  end
+
+  # Resolves the tenant identity for this socket. The host-provided session
+  # token is trusted and preferred; the connect_params value is an
+  # unauthenticated single-tenant fallback. See the @moduledoc trust model.
+  defp resolve_user_token(session, socket) do
+    Map.get(session, "dai_user_token") ||
+      get_connect_params(socket)["dai_user_token"] ||
+      generate_fallback_token()
   end
 
   defp generate_fallback_token do
@@ -290,7 +329,7 @@ defmodule Dai.DashboardLive do
   # --- Sidebar events ---
 
   def handle_event("save_query", %{"folder-id" => folder_id, "prompt" => prompt} = params, socket) do
-    case Folders.create_saved_query(%{
+    case Folders.create_saved_query(socket.assigns.user_token, %{
            folder_id: folder_id,
            prompt: prompt,
            title: params["title"]
@@ -301,14 +340,21 @@ defmodule Dai.DashboardLive do
   end
 
   def handle_event("save_query_new_folder", %{"prompt" => prompt} = params, socket) do
-    case Folders.save_query_to_new_folder(prompt, params["title"], length(socket.assigns.folders)) do
+    user_token = socket.assigns.user_token
+
+    case Folders.save_query_to_new_folder(
+           user_token,
+           prompt,
+           params["title"],
+           length(socket.assigns.folders)
+         ) do
       {:ok, %{folder: folder}} ->
         {:noreply,
          socket
          |> reload_folders()
          |> assign(
            active_folder_id: folder.id,
-           folder_queries: Folders.list_saved_queries(folder.id)
+           folder_queries: Folders.list_saved_queries(user_token, folder.id)
          )}
 
       {:error, _, _, _} ->
@@ -320,7 +366,10 @@ defmodule Dai.DashboardLive do
     name = params |> Map.get("name", "") |> String.trim()
     name = if name == "", do: Folders.default_folder_name(), else: name
 
-    case Folders.create_folder(%{name: name, position: length(socket.assigns.folders)}) do
+    case Folders.create_folder(socket.assigns.user_token, %{
+           name: name,
+           position: length(socket.assigns.folders)
+         }) do
       {:ok, folder} ->
         {:noreply,
          socket
@@ -335,10 +384,15 @@ defmodule Dai.DashboardLive do
   def handle_event("load_folder", %{"id" => id}, socket) do
     new_active = if socket.assigns.active_folder_id == id, do: nil, else: id
 
+    queries =
+      if new_active,
+        do: Folders.list_saved_queries(socket.assigns.user_token, new_active),
+        else: []
+
     {:noreply,
      assign(socket,
        active_folder_id: new_active,
-       folder_queries: if(new_active, do: Folders.list_saved_queries(new_active), else: [])
+       folder_queries: queries
      )}
   end
 
@@ -347,7 +401,7 @@ defmodule Dai.DashboardLive do
   end
 
   def handle_event("load_all_folder_queries", %{"id" => folder_id}, socket) do
-    queries = Folders.list_saved_queries(folder_id)
+    queries = Folders.list_saved_queries(socket.assigns.user_token, folder_id)
 
     pending =
       Map.new(queries, fn query ->
@@ -368,7 +422,9 @@ defmodule Dai.DashboardLive do
   end
 
   def handle_event("delete_folder", %{"id" => id}, socket) do
-    case Folders.delete_folder_by_id(id) do
+    user_token = socket.assigns.user_token
+
+    case Folders.delete_folder_by_id(user_token, id) do
       {:ok, _} ->
         new_active =
           if socket.assigns.active_folder_id == id, do: nil, else: socket.assigns.active_folder_id
@@ -378,7 +434,8 @@ defmodule Dai.DashboardLive do
          |> reload_folders()
          |> assign(
            active_folder_id: new_active,
-           folder_queries: if(new_active, do: Folders.list_saved_queries(new_active), else: [])
+           folder_queries:
+             if(new_active, do: Folders.list_saved_queries(user_token, new_active), else: [])
          )}
 
       {:error, _} ->
@@ -387,21 +444,21 @@ defmodule Dai.DashboardLive do
   end
 
   def handle_event("delete_saved_query", %{"id" => id}, socket) do
-    case Folders.delete_saved_query_by_id(id) do
+    case Folders.delete_saved_query_by_id(socket.assigns.user_token, id) do
       {:ok, _} -> {:noreply, reload_folder_queries(socket)}
       {:error, _} -> {:noreply, socket}
     end
   end
 
   def handle_event("rename_folder", %{"id" => id, "name" => name}, socket) do
-    case Folders.rename_folder(id, name) do
+    case Folders.rename_folder(socket.assigns.user_token, id, name) do
       {:ok, _} -> {:noreply, reload_folders(socket)}
       {:error, _} -> {:noreply, socket}
     end
   end
 
   def handle_event("rename_saved_query", %{"id" => id, "title" => title}, socket) do
-    case Folders.rename_saved_query(id, title) do
+    case Folders.rename_saved_query(socket.assigns.user_token, id, title) do
       {:ok, _} -> {:noreply, reload_folder_queries(socket)}
       {:error, _} -> {:noreply, socket}
     end
@@ -526,6 +583,23 @@ defmodule Dai.DashboardLive do
   # --- Private helpers ---
 
   defp run_query(prompt, socket) do
+    max_length = Dai.Config.max_prompt_length()
+
+    if String.length(prompt) > max_length do
+      {:noreply,
+       assign(socket, query_error: "Your question is too long (max #{max_length} characters).")}
+    else
+      case RateLimiter.take(socket.assigns.rate_bucket, System.monotonic_time(:millisecond)) do
+        {:ok, bucket} ->
+          start_query_task(prompt, assign(socket, rate_bucket: bucket))
+
+        {:rate_limited, bucket} ->
+          {:noreply, assign(socket, rate_bucket: bucket, query_error: @rate_limit_message)}
+      end
+    end
+  end
+
+  defp start_query_task(prompt, socket) do
     scope = socket.assigns.scope
 
     task =
@@ -535,10 +609,16 @@ defmodule Dai.DashboardLive do
      assign(socket,
        loading: true,
        current_prompt: prompt,
+       query_error: nil,
        task_ref: task.ref,
        form: to_form(%{"prompt" => ""}, as: :query)
      )}
   end
+
+  # A fresh per-socket token bucket. State lives in socket assigns, so throttling
+  # is naturally isolated per LiveView process — no shared ETS or dependency.
+  defp init_rate_bucket,
+    do: RateLimiter.new(Dai.Config.rate_limit(), System.monotonic_time(:millisecond))
 
   defp maybe_store_pending_action(socket, %Result{type: :action_confirmation} = result) do
     assign(socket,
@@ -565,12 +645,18 @@ defmodule Dai.DashboardLive do
     end
   end
 
-  defp reload_folders(socket), do: assign(socket, folders: Folders.list_folders())
+  defp reload_folders(socket),
+    do: assign(socket, folders: Folders.list_folders(socket.assigns.user_token))
 
   defp reload_folder_queries(socket) do
     case socket.assigns.active_folder_id do
-      nil -> socket
-      id -> assign(socket, folder_queries: Folders.list_saved_queries(id))
+      nil ->
+        socket
+
+      id ->
+        assign(socket,
+          folder_queries: Folders.list_saved_queries(socket.assigns.user_token, id)
+        )
     end
   end
 

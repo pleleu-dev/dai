@@ -218,7 +218,7 @@ defmodule Dai.SchemaExplorerComponents do
       )
 
     ~H"""
-    <div>
+    <div id="explorer-detail">
       <button phx-click="reset_explorer" class="btn btn-ghost btn-sm gap-1 mb-3">
         <Icons.arrow_left class="size-4" /> All tables
       </button>
