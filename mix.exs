@@ -65,8 +65,10 @@ defmodule Dai.MixProject do
       {:gettext, "~> 0.26"},
       {:jason, "~> 1.2"},
       {:dns_cluster, "~> 0.2.0"},
-      {:bandit, "~> 1.5"},
-      {:live_charts, "~> 0.4.0"}
+      {:bandit, "~> 1.11"},
+      {:live_charts, "~> 0.4.0"},
+      {:mox, "~> 1.1", only: :test},
+      {:mix_audit, "~> 2.1", only: [:dev, :test], runtime: false}
     ]
   end
 
@@ -89,7 +91,15 @@ defmodule Dai.MixProject do
         "esbuild dai --minify",
         "phx.digest"
       ],
-      precommit: ["compile --warning-as-errors", "deps.unlock --unused", "format", "test"],
+      precommit: [
+        "compile --warning-as-errors",
+        "deps.unlock --unused",
+        "format",
+        # GHSA-rhv4-8758-jx7v (decimal DoS) is only patched in decimal 3.0, which
+        # the current ecto/postgrex stack pins below; ignored until that upgrade.
+        "deps.audit --ignore-advisory-ids GHSA-rhv4-8758-jx7v",
+        "test"
+      ],
       dev: [
         "cmd bash scripts/kill_port.sh",
         "cmd bash scripts/load_env.sh -- mix phx.server"
