@@ -7,6 +7,7 @@ defmodule Dai.Folders.SavedQuery do
   @primary_key {:id, :binary_id, autogenerate: true}
   @foreign_key_type :binary_id
   schema "dai_saved_queries" do
+    field :user_token, :string
     field :prompt, :string
     field :title, :string
     field :position, :integer
@@ -19,9 +20,16 @@ defmodule Dai.Folders.SavedQuery do
   @doc false
   def changeset(saved_query, attrs) do
     saved_query
-    |> cast(attrs, [:prompt, :title, :position, :folder_id])
-    |> validate_required([:prompt, :folder_id])
+    |> cast(attrs, [:user_token, :prompt, :title, :position, :folder_id])
+    |> validate_required([:user_token, :prompt, :folder_id])
     |> foreign_key_constraint(:folder_id)
+    |> set_default_title()
+  end
+
+  @doc "Update changeset — excludes `:user_token` and `:folder_id` so neither ownership nor parent can be reassigned."
+  def update_changeset(saved_query, attrs) do
+    saved_query
+    |> cast(attrs, [:title, :position])
     |> set_default_title()
   end
 
