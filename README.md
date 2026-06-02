@@ -89,6 +89,95 @@ const liveSocket = new LiveSocket("/live", Socket, {
 
 Visit `/dashboard` and start asking questions about your data.
 
+## Security
+
+Dai runs AI-generated SQL against your database, so treat the integration as a
+trust boundary. The defaults are safe-by-construction, but multi-tenant hosts
+must opt into the stronger controls below.
+
+### Authentication & tenant identity
+
+Dai cannot authenticate users — the host owns the session. Gate the route and
+pass a **trusted, signed** `user_token` derived from your authenticated session.
+It scopes folders, saved queries, and layout persistence per tenant.
+
+```elixir
+# router.ex
+scope "/" do
+  pipe_through [:browser, :require_admin]    # gate the route
+
+  dai_dashboard "/admin/explore",
+    on_mount: [MyAppWeb.RequireAdmin],       # auth hooks before mount
+    user_token: &MyAppWeb.Auth.dai_user_token/1,
+    scope_value: &MyAppWeb.Auth.current_org_id/1
+end
+```
+
+Without a `user_token`, Dai falls back to a `connect_params` token that **any
+visitor can forge — it provides no isolation between users**, so it is for
+single-tenant / anonymous use only. The standalone `dai_web` route is an
+unauthenticated demo; never ship it as-is.
+
+> **Existing data:** the `user_token` migration backfills any pre-existing
+> folder / saved-query rows to a shared `legacy` token. Reassign or purge those
+> rows before going multi-tenant, or they're readable by any caller using that
+> token.
+
+### Read-only execution (recommended)
+
+By default every AI query runs in a `READ ONLY` transaction with a
+`statement_timeout`, so writes are rejected by the engine even if a query slips
+past the keyword blocklist. For defense-in-depth, point Dai at a dedicated
+Postgres role that only has `GRANT SELECT`:
+
+```sql
+CREATE ROLE dai_readonly LOGIN PASSWORD '...';
+GRANT CONNECT ON DATABASE my_db TO dai_readonly;
+GRANT USAGE ON SCHEMA public TO dai_readonly;
+GRANT SELECT ON ALL TABLES IN SCHEMA public TO dai_readonly;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT ON TABLES TO dai_readonly;
+```
+
+```elixir
+# a second Ecto repo backed by the dai_readonly role
+config :dai, readonly_repo: MyApp.ReadOnlyRepo
+```
+
+### Tenant scoping & Postgres RLS
+
+Set `query_scope` so Dai enforces a tenant filter on every query and publishes
+the value as a transaction-local GUC for Row-Level Security:
+
+```elixir
+config :dai, query_scope: %{table: "users", column: "org_id"}
+```
+
+A query that omits the scope column is rejected before execution (a best-effort
+substring check — the RLS policy below is the authoritative boundary). Pair it
+with an RLS policy that reads the GUC for in-engine isolation:
+
+```sql
+ALTER TABLE users ENABLE ROW LEVEL SECURITY;
+CREATE POLICY tenant_isolation ON users
+  USING (org_id = current_setting('dai.scope_value', true));
+```
+
+### Limits & rate limiting
+
+```elixir
+config :dai,
+  statement_timeout_ms: 15_000,            # per-query timeout
+  max_rows: 1_000,                         # hard LIMIT ceiling
+  max_prompt_length: 2_000,                # reject longer prompts
+  rate_limit: %{limit: 20, window_ms: 60_000}  # per-socket query budget
+```
+
+The rate limit is **per LiveView process**: it smooths honest bursts and runaway
+loops, but a determined client can reset it by reconnecting or opening multiple
+sockets. For real anti-abuse, add a shared limiter (e.g.
+[Hammer](https://hex.pm/packages/hammer)) keyed by `user_token`/IP plus an
+endpoint-level limit.
+
 ## Run standalone (development)
 
 Dai ships with a SaaS analytics demo dataset for standalone development and testing.

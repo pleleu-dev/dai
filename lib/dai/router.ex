@@ -22,6 +22,35 @@ defmodule Dai.Router do
   When `:layout` is provided, Dai renders inside the host layout instead of
   its own. When `:on_mount` is provided, the hooks run before Dai's LiveView
   mounts — useful for auth and navigation assigns.
+
+  ## Security
+
+  Dai cannot authenticate users for you — the host owns the session. For any
+  multi-tenant deployment you MUST:
+
+    * **Gate the route.** `pipe_through` an authenticated pipeline and/or pass
+      `on_mount:` auth hooks so unauthenticated visitors never reach the
+      dashboard.
+    * **Pass a trusted `user_token`.** Provide `user_token: &getter/1` deriving a
+      stable, signed identifier from your authenticated session (e.g. the user
+      or org id). It scopes folders, saved queries, and layout persistence per
+      tenant. Without it, Dai falls back to a `connect_params` token that **any
+      visitor can forge — it provides NO isolation between users** and is suitable
+      for single-tenant / anonymous use only (see `Dai.DashboardLive`).
+    * **Pass a `scope_value`** when rows must be filtered to a tenant. Combined
+      with `config :dai, :query_scope`, Dai enforces the scope and publishes it
+      as the `dai.scope_value` GUC for Postgres RLS policies.
+
+      dai_dashboard "/admin/explore",
+        on_mount: [MyAppWeb.RequireAdmin],
+        user_token: &MyAppWeb.Auth.dai_user_token/1,
+        scope_value: &MyAppWeb.Auth.current_org_id/1
+
+  > #### Demo route {: .warning}
+  >
+  > The standalone `dai_web/router.ex` mounts the dashboard **unauthenticated**
+  > for local development against the demo dataset. Never expose that route as-is
+  > in production.
   """
 
   defmacro dai_dashboard(path, opts \\ []) do

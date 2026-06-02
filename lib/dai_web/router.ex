@@ -16,6 +16,9 @@ defmodule DaiWeb.Router do
 
   import Dai.Router
 
+  # DEMO ONLY: unauthenticated dashboard over the demo dataset for local
+  # development. Production hosts must gate the route and pass a trusted
+  # user_token/scope_value — see Dai.Router "Security".
   scope "/" do
     pipe_through :browser
     dai_dashboard("/")
